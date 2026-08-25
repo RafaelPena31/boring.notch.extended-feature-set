@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AA1200010000000000000001 /* SystemNotification.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1100010000000000000001 /* SystemNotification.swift */; };
+		AA1200020000000000000001 /* OTPDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1100020000000000000001 /* OTPDetector.swift */; };
+		AA1200030000000000000001 /* FocusModeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1100030000000000000001 /* FocusModeManager.swift */; };
+		AA1200040000000000000001 /* NotificationPolicyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1100040000000000000001 /* NotificationPolicyManager.swift */; };
+		AA1200050000000000000001 /* NotificationFocusFilterIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1100050000000000000001 /* NotificationFocusFilterIntent.swift */; };
 		07FE456E7AEA085D9FCA6D97 /* MeetingLinkDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9B2A5E5F4D28F1DD9CD0B09 /* MeetingLinkDetector.swift */; };
 		1100290C2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */; };
 		110029272E84FD4C00035A57 /* TemporaryFileStorageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 110029262E84FD4C00035A57 /* TemporaryFileStorageService.swift */; };
@@ -189,6 +194,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AA1100010000000000000001 /* SystemNotification.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemNotification.swift; sourceTree = "<group>"; };
+		AA1100020000000000000001 /* OTPDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPDetector.swift; sourceTree = "<group>"; };
+		AA1100030000000000000001 /* FocusModeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusModeManager.swift; sourceTree = "<group>"; };
+		AA1100040000000000000001 /* NotificationPolicyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationPolicyManager.swift; sourceTree = "<group>"; };
+		AA1100050000000000000001 /* NotificationFocusFilterIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationFocusFilterIntent.swift; sourceTree = "<group>"; };
 		1100290B2E847E2800035A57 /* NSItemProvider+LoadHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSItemProvider+LoadHelpers.swift"; sourceTree = "<group>"; };
 		110029262E84FD4C00035A57 /* TemporaryFileStorageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporaryFileStorageService.swift; sourceTree = "<group>"; };
 		110029292E8691B400035A57 /* FileShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileShareView.swift; sourceTree = "<group>"; };
@@ -374,6 +384,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		AA1300010000000000000001 /* AppIntents */ = {
+			isa = PBXGroup;
+			children = (
+				AA1100050000000000000001 /* NotificationFocusFilterIntent.swift */,
+			);
+			path = AppIntents;
+			sourceTree = "<group>";
+		};
 		1113ABB82E80E27000EC13B2 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -473,6 +491,7 @@
 		14288DD92C6E015000B9F80C /* helpers */ = {
 			isa = PBXGroup;
 			children = (
+				AA1100020000000000000001 /* OTPDetector.swift */,
 				118EBE242E92DCCB00D54B5A /* AssociatedObject.swift */,
 				11A45C782E34E63100CEB175 /* MediaChecker.swift */,
 				1153BD972D9881F900979FB0 /* AppleScriptHelper.swift */,
@@ -538,6 +557,8 @@
 		147163B52C5D804B0068B555 /* managers */ = {
 			isa = PBXGroup;
 			children = (
+				AA1100030000000000000001 /* FocusModeManager.swift */,
+				AA1100040000000000000001 /* NotificationPolicyManager.swift */,
 				11D58EA12E760AE100FA8377 /* ImageService.swift */,
 				F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */,
 				112FB7342CCF16F70015238C /* NotchSpaceManager.swift */,
@@ -592,6 +613,7 @@
 		14CEF4142C5CAED300855D72 /* boringNotch */ = {
 			isa = PBXGroup;
 			children = (
+				AA1300010000000000000001 /* AppIntents */,
 				11F748672EC9AC9600F841DB /* XPCHelperClient */,
 				116398942DF5D6B40052E6AF /* Providers */,
 				14288DE22C6E016F00B9F80C /* observers */,
@@ -657,6 +679,7 @@
 		14D570C72C5F38760011E668 /* models */ = {
 			isa = PBXGroup;
 			children = (
+				AA1100010000000000000001 /* SystemNotification.swift */,
 				11F748812ECB07A400F841DB /* MusicControlButton.swift */,
 				118D1FD02E98FF5F00A2FF63 /* SharingStateManager.swift */,
 				1163988E2DF5CC870052E6AF /* CalendarModel.swift */,
@@ -940,6 +963,11 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA1200010000000000000001 /* SystemNotification.swift in Sources */,
+				AA1200020000000000000001 /* OTPDetector.swift in Sources */,
+				AA1200030000000000000001 /* FocusModeManager.swift in Sources */,
+				AA1200040000000000000001 /* NotificationPolicyManager.swift in Sources */,
+				AA1200050000000000000001 /* NotificationFocusFilterIntent.swift in Sources */,
 				115C12EC2ED3D003009754CA /* OpenNotchHUD.swift in Sources */,
 				14C08BB92C8DE4B1000F8AA0 /* BoringCalendar.swift in Sources */,
 				5955950D2E900ED800C66711 /* ApplicationRelauncher.swift in Sources */,
