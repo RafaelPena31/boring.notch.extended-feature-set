@@ -715,6 +715,7 @@ struct Media: View {
 struct CalendarSettings: View {
     @ObservedObject private var calendarManager = CalendarManager.shared
     @Default(.showCalendar) var showCalendar: Bool
+    @Default(.calendarLiveActivityEnabled) var calendarLiveActivityEnabled: Bool
     @Default(.hideCompletedReminders) var hideCompletedReminders
     @Default(.hideAllDayEvents) var hideAllDayEvents
     @Default(.autoScrollToNextEvent) var autoScrollToNextEvent
@@ -723,6 +724,18 @@ struct CalendarSettings: View {
         Form {
             Defaults.Toggle(key: .showCalendar) {
                 Text("Show calendar")
+            }
+            .onChange(of: showCalendar) { _, enabled in
+                CalendarLiveActivityViewModel.shared.setEnabled(
+                    enabled && calendarLiveActivityEnabled
+                )
+            }
+            Defaults.Toggle(key: .calendarLiveActivityEnabled) {
+                Text("Show calendar live activity")
+            }
+            .disabled(!showCalendar)
+            .onChange(of: calendarLiveActivityEnabled) { _, enabled in
+                CalendarLiveActivityViewModel.shared.setEnabled(enabled && showCalendar)
             }
             Defaults.Toggle(key: .hideCompletedReminders) {
                 Text("Hide completed reminders")

@@ -102,4 +102,3 @@ enum ClipboardActionService {
         copiedURLs.removeAll()
     }
 }
-

@@ -79,7 +79,6 @@ enum ClipboardItemKind: Codable, Equatable, Sendable {
         }
     }
 }
-
 /// A single entry in the clipboard history.
 ///
 /// Deliberately **not** `@MainActor` (unlike `ShelfItem`). Keeping it actor-agnostic and
@@ -161,4 +160,3 @@ extension ClipboardItem {
         }
     }
 }
-

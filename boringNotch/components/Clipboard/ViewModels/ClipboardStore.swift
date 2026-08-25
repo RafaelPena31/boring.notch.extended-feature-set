@@ -102,7 +102,6 @@ final class ClipboardStore: ObservableObject {
         }
     }
 }
-
 // MARK: - Thumbnails
 
 /// Memory cache for card artwork, mirroring `ThumbnailService`'s coalescing so a fast scroll
@@ -170,4 +169,3 @@ actor ClipboardThumbnailCache {
         }
     }
 }
-

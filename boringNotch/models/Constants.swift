@@ -181,6 +181,7 @@ extension Defaults.Keys {
     static let clipboardIgnoreConcealed = Key<Bool>("clipboardIgnoreConcealed", default: true)
     
     // MARK: Calendar
+    static let calendarLiveActivityEnabled = Key<Bool>("calendarLiveActivityEnabled", default: false)
     static let calendarSelectionState = Key<CalendarSelectionState>("calendarSelectionState", default: .all)
     static let hideAllDayEvents = Key<Bool>("hideAllDayEvents", default: false)
     static let showFullEventTitles = Key<Bool>("showFullEventTitles", default: false)

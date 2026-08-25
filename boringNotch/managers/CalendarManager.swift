@@ -192,6 +192,16 @@ class CalendarManager: ObservableObject {
         )
         self.events = eventsResult
     }
+
+    func todaysEvents() async -> [EventModel] {
+        let start = Calendar.current.startOfDay(for: Date())
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: start)!
+        return await calendarService.events(
+            from: start,
+            to: end,
+            calendars: selectedCalendars.map { $0.id }
+        )
+    }
     
     func setReminderCompleted(reminderID: String, completed: Bool) async {
         await calendarService.setReminderCompleted(reminderID: reminderID, completed: completed)
