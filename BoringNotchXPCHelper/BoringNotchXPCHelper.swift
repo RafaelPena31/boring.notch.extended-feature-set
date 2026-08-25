@@ -11,6 +11,13 @@ import IOKit
 import CoreGraphics
 
 class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
+    private weak var connection: NSXPCConnection?
+    private static let notificationWatcher = NotificationWatcher()
+
+    init(connection: NSXPCConnection) {
+        self.connection = connection
+        super.init()
+    }
     
     @objc func isAccessibilityAuthorized(with reply: @escaping (Bool) -> Void) {
         reply(AXIsProcessTrusted())
@@ -33,6 +40,98 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             reply(AXIsProcessTrusted())
+        }
+    }
+
+    // MARK: - Notification Center banners
+
+    @objc func startNotificationWatching(with reply: @escaping (Bool) -> Void) {
+        guard let delegate = connection?.remoteObjectProxyWithErrorHandler({ error in
+            NSLog("[boringNotch] notification callback failed: \(error)")
+        }) as? BoringNotchXPCHelperDelegate else {
+            reply(false)
+            return
+        }
+
+        DispatchQueue.main.async {
+            Self.notificationWatcher.onBanner = { notification in
+                var payload: [String: String] = [
+                    "token": notification.token,
+                    "actions": notification.actions.joined(separator: "\n"),
+                ]
+                payload["appName"] = notification.appName
+                payload["bundleID"] = notification.bundleID
+                payload["title"] = notification.title
+                payload["subtitle"] = notification.subtitle
+                payload["body"] = notification.body
+                delegate.notificationDidAppear(payload)
+            }
+            Self.notificationWatcher.onBannerGone = { token in
+                delegate.notificationDidDisappear(token)
+            }
+            reply(Self.notificationWatcher.start())
+        }
+    }
+
+    @objc func stopNotificationWatching() {
+        DispatchQueue.main.async {
+            Self.notificationWatcher.stop()
+            Self.notificationWatcher.onBanner = nil
+            Self.notificationWatcher.onBannerGone = nil
+        }
+    }
+
+    @objc func replyToNotification(
+        _ token: String,
+        text: String,
+        with reply: @escaping (Bool) -> Void
+    ) {
+        DispatchQueue.main.async {
+            reply(Self.notificationWatcher.reply(token: token, text: text))
+        }
+    }
+
+    @objc func sendIMessage(
+        _ text: String,
+        toChatNamed name: String,
+        with reply: @escaping (Bool) -> Void
+    ) {
+        DispatchQueue.main.async {
+            reply(MessagesSender.send(text, toChatNamed: name))
+        }
+    }
+
+    @objc func performNotificationAction(
+        _ token: String,
+        name: String,
+        with reply: @escaping (Bool) -> Void
+    ) {
+        DispatchQueue.main.async {
+            reply(Self.notificationWatcher.performAction(token: token, name: name))
+        }
+    }
+
+    @objc func openNotification(_ token: String, with reply: @escaping (Bool) -> Void) {
+        DispatchQueue.main.async {
+            reply(Self.notificationWatcher.open(token: token))
+        }
+    }
+
+    @objc func dismissNotification(_ token: String, with reply: @escaping (Bool) -> Void) {
+        DispatchQueue.main.async {
+            reply(Self.notificationWatcher.dismiss(token: token))
+        }
+    }
+
+    @objc func holdNotification(_ token: String) {
+        DispatchQueue.main.async {
+            Self.notificationWatcher.hold(token: token)
+        }
+    }
+
+    @objc func releaseNotification(_ token: String) {
+        DispatchQueue.main.async {
+            Self.notificationWatcher.release(token: token)
         }
     }
     
