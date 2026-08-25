@@ -216,6 +216,8 @@ class BoringViewModel: NSObject, ObservableObject {
         } else if !coordinator.openLastTabByDefault {
             coordinator.currentView = .home
         }
+
+        coordinator.normalizeCurrentViewIfNeeded()
     }
 
     func closeHello() {
