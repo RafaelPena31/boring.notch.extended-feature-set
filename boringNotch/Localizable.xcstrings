@@ -23671,6 +23671,42 @@
     },
     "Start Focus" : {
 
+    },
+    "Auto-disable after" : {
+
+    },
+    "Automatically disables Keep Awake on battery at this charge level." : {
+
+    },
+    "Battery Safety" : {
+
+    },
+    "Disable Keep Awake" : {
+
+    },
+    "Enable Keep Awake" : {
+
+    },
+    "Keep Awake" : {
+
+    },
+    "Keep Awake is active" : {
+
+    },
+    "Keep this Mac awake" : {
+
+    },
+    "Low battery cutoff" : {
+
+    },
+    "Prevents the display from sleeping until you turn it off or a safety limit is reached." : {
+
+    },
+    "Safety Timeout" : {
+
+    },
+    "The timeout starts when Keep Awake is activated." : {
+
     }
   },
   "version" : "1.0"

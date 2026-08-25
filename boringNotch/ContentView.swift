@@ -25,6 +25,7 @@ struct ContentView: View {
     @ObservedObject var volumeManager = VolumeManager.shared
     @ObservedObject var calendarActivity = CalendarLiveActivityViewModel.shared
     @ObservedObject var pomodoroManager = PomodoroManager.shared
+    @ObservedObject var caffeineManager = CaffeineManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
@@ -41,6 +42,7 @@ struct ContentView: View {
     @Default(.showCalendar) var showCalendar
     @Default(.calendarLiveActivityEnabled) var calendarLiveActivityEnabled
     @Default(.pomodoroShowLiveActivity) var pomodoroShowLiveActivity
+    @Default(.caffeineEnabled) var caffeineEnabled
 
     // Shared interactive spring for movement/resizing to avoid conflicting animations
     private let animationSpring = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
@@ -91,8 +93,16 @@ struct ContentView: View {
             && coordinator.sneakPeek.type != .pomodoro
     }
 
+    private var caffeineActivityActive: Bool {
+        caffeineEnabled
+            && caffeineManager.isActive
+            && vm.notchState == .closed
+            && !vm.hideOnClosed
+            && !closedSystemHUDActive
+    }
+
     private var productivityActivityActive: Bool {
-        pomodoroActivityActive || calendarActivityActive
+        pomodoroActivityActive || calendarActivityActive || caffeineActivityActive
     }
 
     private var compactActivitySize: CGFloat {
@@ -119,12 +129,18 @@ struct ContentView: View {
             if calendarActivityActive {
                 chinWidth += compactActivitySize + 8
             }
+            if caffeineActivityActive {
+                chinWidth += compactActivitySize + 8
+            }
         } else if productivityActivityActive && musicSlotIdle {
             chinWidth += compactActivitySize + 12
             if pomodoroActivityActive {
                 chinWidth += pomodoroCompactWidth + 8
             }
             if calendarActivityActive {
+                chinWidth += compactActivitySize + 8
+            }
+            if caffeineActivityActive {
                 chinWidth += compactActivitySize + 8
             }
         } else if !coordinator.expandingView.show && vm.notchState == .closed
@@ -568,6 +584,10 @@ struct ContentView: View {
                 )
                 .help(calendarActivity.label)
             }
+
+            if caffeineActivityActive {
+                CaffeineCompactIndicator()
+            }
         }
         .frame(
             height: vm.effectiveClosedNotchHeight,
@@ -578,14 +598,7 @@ struct ContentView: View {
     @ViewBuilder
     func ProductivityLiveActivity() -> some View {
         HStack {
-            Image(systemName: pomodoroActivityActive ? pomodoroManager.phaseIcon : "calendar")
-                .resizable()
-                .scaledToFit()
-                .foregroundStyle(pomodoroActivityActive ? pomodoroPhaseColor : .gray)
-                .frame(
-                    width: compactActivitySize,
-                    height: compactActivitySize
-                )
+            ProductivityLeadingIcon()
 
             Rectangle()
                 .fill(.black)
@@ -602,8 +615,45 @@ struct ContentView: View {
                 )
                 .help(calendarActivity.label)
             }
+
+            if caffeineActivityActive {
+                CaffeineCompactIndicator()
+            }
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+    }
+
+    @ViewBuilder
+    func ProductivityLeadingIcon() -> some View {
+        if pomodoroActivityActive {
+            Image(systemName: pomodoroManager.phaseIcon)
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(pomodoroPhaseColor)
+                .frame(width: compactActivitySize, height: compactActivitySize)
+        } else if caffeineActivityActive {
+            Image(systemName: "cup.and.heat.waves.fill")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(Color.effectiveAccent)
+                .frame(width: compactActivitySize, height: compactActivitySize)
+        } else {
+            Image(systemName: "calendar")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(.gray)
+                .frame(width: compactActivitySize, height: compactActivitySize)
+        }
+    }
+
+    @ViewBuilder
+    func CaffeineCompactIndicator() -> some View {
+        Circle()
+            .fill(Color.effectiveAccent)
+            .frame(width: 10, height: 10)
+            .frame(width: compactActivitySize, height: compactActivitySize)
+            .help("Keep Awake is active")
+            .accessibilityLabel("Keep Awake is active")
     }
 
     @ViewBuilder

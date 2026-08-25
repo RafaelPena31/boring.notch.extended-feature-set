@@ -68,6 +68,28 @@ enum OptionKeyAction: String, CaseIterable, Identifiable, Defaults.Serializable 
     var id: String { self.rawValue }
 }
 
+enum CaffeineTimeoutOption: Double, CaseIterable, Identifiable, Defaults.Serializable {
+    case disabled = 0
+    case oneHour = 3600
+    case twoHours = 7200
+    case fourHours = 14400
+    case eightHours = 28800
+    case twentyFourHours = 86400
+
+    var id: Double { rawValue }
+
+    var label: String {
+        switch self {
+        case .disabled: String(localized: "Never")
+        case .oneHour: String(localized: "1 Hour")
+        case .twoHours: String(localized: "2 Hours")
+        case .fourHours: String(localized: "4 Hours")
+        case .eightHours: String(localized: "8 Hours")
+        case .twentyFourHours: String(localized: "24 Hours")
+        }
+    }
+}
+
 extension Defaults.Keys {
     // MARK: General
     static let menubarIcon = Key<Bool>("menubarIcon", default: true)
@@ -143,6 +165,11 @@ extension Defaults.Keys {
     static let showBatteryIndicator = Key<Bool>("showBatteryIndicator", default: true)
     static let showBatteryPercentage = Key<Bool>("showBatteryPercentage", default: true)
     static let showPowerStatusIcons = Key<Bool>("showPowerStatusIcons", default: true)
+
+    // MARK: Keep Awake
+    static let caffeineEnabled = Key<Bool>("caffeineEnabled", default: false)
+    static let caffeineLowBatteryCutoff = Key<Int>("caffeineLowBatteryCutoff", default: 10)
+    static let caffeineSafetyTimeout = Key<CaffeineTimeoutOption>("caffeineSafetyTimeout", default: .twentyFourHours)
     
     // MARK: Downloads
     static let enableDownloadListener = Key<Bool>("enableDownloadListener", default: true)
