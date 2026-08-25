@@ -311,40 +311,45 @@ struct EventListView: View {
     }
 
     var body: some View {
+        let displayedEvents = filteredEvents
+
         ScrollViewReader { proxy in
-            List {
-                ForEach(filteredEvents) { event in
-                    eventCell(event)
-                    .id(event.id)
-                    .padding(.leading, -5)
-                    .contextMenu {
-                        if let meeting = event.meetingLink {
-                            Button(meeting.displayLabel, systemImage: meeting.symbolName) {
-                                MeetingLauncher.open(meeting)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(displayedEvents) { event in
+                        eventCell(event)
+                            .id(event.id)
+                            .padding(.vertical, 4)
+                            .contextMenu {
+                                if let meeting = event.meetingLink {
+                                    Button(meeting.displayLabel, systemImage: meeting.symbolName) {
+                                        MeetingLauncher.open(meeting)
+                                    }
+                                    Button("Copy Meeting Link", systemImage: "doc.on.doc") {
+                                        NSPasteboard.general.clearContents()
+                                        NSPasteboard.general.setString(
+                                            meeting.url.absoluteString,
+                                            forType: .string
+                                        )
+                                    }
+                                    Divider()
+                                }
+                                if let url = event.calendarAppURL() {
+                                    Button("Open in Calendar", systemImage: "calendar") {
+                                        openURL(url)
+                                    }
+                                }
                             }
-                            Button("Copy Meeting Link", systemImage: "doc.on.doc") {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(
-                                    meeting.url.absoluteString,
-                                    forType: .string
-                                )
-                            }
+
+                        if event.id != displayedEvents.last?.id {
                             Divider()
-                        }
-                        if let url = event.calendarAppURL() {
-                            Button("Open in Calendar", systemImage: "calendar") {
-                                openURL(url)
-                            }
+                                .overlay(Color.gray.opacity(0.2))
                         }
                     }
-                    .listRowSeparator(.automatic)
-                    .listRowSeparatorTint(.gray.opacity(0.2))
-                    .listRowBackground(Color.clear)
                 }
+                .padding(.horizontal, 5)
             }
-            .listStyle(.plain)
             .scrollIndicators(.never)
-            .scrollContentBackground(.hidden)
             .background(Color.clear)
             .onAppear {
                 scrollToRelevantEvent(proxy: proxy)
@@ -374,7 +379,8 @@ struct EventListView: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(0)
 
                 if let meeting = event.meetingLink {
                     meetingButton(meeting, eventID: event.id)
@@ -396,6 +402,8 @@ struct EventListView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .fixedSize()
+        .layoutPriority(1)
         .onHover { hovering in
             if hovering {
                 hoveredMeetingID = eventID
