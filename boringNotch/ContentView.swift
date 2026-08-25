@@ -219,7 +219,9 @@ struct ContentView: View {
 
             if isTargeted {
                 if vm.notchState == .closed {
-                    coordinator.currentView = .shelf
+                    if Defaults[.boringShelf] {
+                        coordinator.currentView = .shelf
+                    }
                     doOpen()
                 }
                 return
@@ -349,6 +351,8 @@ struct ContentView: View {
                         NotchHomeView(albumArtNamespace: albumArtNamespace)
                     case .shelf:
                         ShelfView()
+                    case .clipboard:
+                        ClipboardView()
                     }
                 }
                 .transition(

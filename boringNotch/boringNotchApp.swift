@@ -85,12 +85,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         MusicManager.shared.destroy()
         cleanupDragDetectors()
         cleanupWindows()
+        ClipboardMonitor.shared.stop()
+        ClipboardPersistenceService.shared.flush()
         XPCHelperClient.shared.stopMonitoringAccessibilityAuthorization()
     }
 
     @MainActor
     func onScreenLocked(_ notification: Notification) {
         isScreenLocked = true
+        ClipboardMonitor.shared.stop()
         if !Defaults[.showOnLockScreen] {
             cleanupWindows()
         } else {
@@ -101,6 +104,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     func onScreenUnlocked(_ notification: Notification) {
         isScreenLocked = false
+        ClipboardMonitor.shared.startIfEnabled()
         if !Defaults[.showOnLockScreen] {
             adjustWindowPosition(changeAlpha: true)
         } else {
@@ -221,13 +225,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleDragEntersNotchRegion(onScreen screen: NSScreen) {
         guard let uuid = screen.displayUUID else { return }
+        let shouldSelectShelf = Defaults[.boringShelf]
         
         if Defaults[.showOnAllDisplays], let viewModel = viewModels[uuid] {
             viewModel.open()
-            coordinator.currentView = .shelf
+            if shouldSelectShelf { coordinator.currentView = .shelf }
         } else if !Defaults[.showOnAllDisplays], let windowScreen = window?.screen, screen == windowScreen {
             vm.open()
-            coordinator.currentView = .shelf
+            if shouldSelectShelf { coordinator.currentView = .shelf }
         }
     }
 
@@ -421,6 +426,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         setupDragDetectors()
+
+        ClipboardMonitor.shared.startIfEnabled()
+        ClipboardStore.shared.collectGarbage()
 
         if coordinator.firstLaunch {
             DispatchQueue.main.async {

@@ -68,6 +68,7 @@ class BoringViewCoordinator: ObservableObject {
                 if ShelfStateViewModel.shared.isEmpty || !Defaults[.openShelfByDefault] {
                     currentView = .home
                 }
+                normalizeCurrentViewIfNeeded()
             }
         }
     }
@@ -100,6 +101,7 @@ class BoringViewCoordinator: ObservableObject {
     @Published var optionKeyPressed: Bool = true
     private var accessibilityObserver: Any?
     private var hudReplacementCancellable: AnyCancellable?
+    private var tabAvailabilityCancellables = Set<AnyCancellable>()
 
     private init() {
         // Perform migration from name-based to UUID-based storage
@@ -134,6 +136,18 @@ class BoringViewCoordinator: ObservableObject {
                 }
             }
         }
+
+        Defaults.publisher(.boringShelf)
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.normalizeCurrentViewIfNeeded() }
+            }
+            .store(in: &tabAvailabilityCancellables)
+
+        Defaults.publisher(.clipboardHistoryEnabled)
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.normalizeCurrentViewIfNeeded() }
+            }
+            .store(in: &tabAvailabilityCancellables)
 
         // Observe changes to hudReplacement
         hudReplacementCancellable = Defaults.publisher(.hudReplacement)
@@ -296,5 +310,16 @@ class BoringViewCoordinator: ObservableObject {
     
     func showEmpty() {
         currentView = .home
+    }
+
+    func normalizeCurrentViewIfNeeded() {
+        switch currentView {
+        case .home:
+            break
+        case .shelf:
+            if !Defaults[.boringShelf] { currentView = .home }
+        case .clipboard:
+            if !Defaults[.clipboardHistoryEnabled] { currentView = .home }
+        }
     }
 }
