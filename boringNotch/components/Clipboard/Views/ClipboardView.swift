@@ -131,7 +131,6 @@ struct ClipboardView: View {
         .animation(.easeInOut(duration: 0.15), value: confirmingClear)
     }
 }
-
 // MARK: - Card
 
 private struct ClipboardItemCard: View {
@@ -331,4 +330,3 @@ private struct ClipboardItemCard: View {
         }
     }
 }
-

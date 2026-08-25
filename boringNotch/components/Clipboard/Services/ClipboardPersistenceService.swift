@@ -154,7 +154,6 @@ final class ClipboardPersistenceService: @unchecked Sendable {
         }
     }
 }
-
 // MARK: - Image blobs
 
 /// Stores copied images on disk: one full-fidelity file for faithful re-copy, and one small
@@ -295,4 +294,3 @@ extension Array where Element == ClipboardItem {
         return names
     }
 }
-
