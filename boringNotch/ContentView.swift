@@ -47,6 +47,7 @@ struct ContentView: View {
     @Default(.pomodoroShowLiveActivity) var pomodoroShowLiveActivity
     @Default(.caffeineEnabled) var caffeineEnabled
     @Default(.showMediaProgressBar) var showMediaProgressBar
+    @Default(.musicPlayerLayout) var musicPlayerLayout
 
     // Shared interactive spring for movement/resizing to avoid conflicting animations
     private let animationSpring = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
@@ -136,6 +137,17 @@ struct ContentView: View {
             && !coordinator.expandingView.show
             && !closedSystemHUDActive
             && notificationManager.activeNotification == nil
+    }
+
+    private var usesCompactPlayer: Bool {
+        vm.notchState == .open
+            && musicPlayerLayout == .compact
+            && notificationManager.activeNotification == nil
+    }
+
+    private var openLayoutHeight: CGFloat? {
+        guard vm.notchState == .open else { return nil }
+        return usesCompactPlayer ? nil : vm.notchSize.height
     }
 
     private var compactActivitySize: CGFloat {
@@ -244,7 +256,7 @@ struct ContentView: View {
                     )
                 
                 mainLayout
-                    .frame(height: vm.notchState == .open ? vm.notchSize.height : nil)
+                    .frame(height: openLayoutHeight, alignment: .top)
                     .conditionalModifier(true) { view in
                         let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
                         let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
@@ -434,7 +446,7 @@ struct ContentView: View {
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
                           BoringFaceAnimation()
                        } else if vm.notchState == .open,
-                                 notificationManager.activeNotification != nil {
+                                 (notificationManager.activeNotification != nil || usesCompactPlayer) {
                            Rectangle()
                                .fill(.clear)
                                .frame(
@@ -506,6 +518,9 @@ struct ContentView: View {
                 VStack {
                     if let notification = notificationManager.activeNotification {
                         NotificationExpandedView(notification: notification)
+                    } else if usesCompactPlayer {
+                        CompactHomeView(albumArtNamespace: albumArtNamespace)
+                            .frame(width: 336)
                     } else {
                         switch coordinator.currentView {
                         case .home:

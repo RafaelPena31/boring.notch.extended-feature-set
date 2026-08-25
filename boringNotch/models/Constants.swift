@@ -59,6 +59,13 @@ enum SneakPeekStyle: String, CaseIterable, Identifiable, Defaults.Serializable {
     var id: String { self.rawValue }
 }
 
+enum MusicPlayerLayout: String, CaseIterable, Identifiable, Defaults.Serializable {
+    case standard = "Standard"
+    case compact = "Compact"
+
+    var id: String { rawValue }
+}
+
 // Action to perform when Option (⌥) is held while pressing media keys
 enum OptionKeyAction: String, CaseIterable, Identifiable, Defaults.Serializable {
     case openSettings = "Open System Settings"
@@ -146,6 +153,7 @@ extension Defaults.Keys {
     
     // MARK: Media playback
     static let coloredSpectrogram = Key<Bool>("coloredSpectrogram", default: true)
+    static let musicPlayerLayout = Key<MusicPlayerLayout>("musicPlayerLayout", default: .standard)
     static let showMediaProgressBar = Key<Bool>("showMediaProgressBar", default: false)
     static let mediaProgressBarThickness = Key<Double>("mediaProgressBarThickness", default: 2)
     static let mediaProgressBarColor = Key<SliderColorEnum>(
