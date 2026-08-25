@@ -270,8 +270,7 @@ struct EventListView: View {
     let events: [EventModel]
     @Default(.autoScrollToNextEvent) private var autoScrollToNextEvent
     @Default(.showFullEventTitles) private var showFullEventTitles
-    @Default(.joinMeetingOnEventTap) private var joinMeetingOnEventTap
-    @State private var hoveredEventID: String?
+    @State private var hoveredMeetingID: String?
 
 
     static func filteredEvents(events: [EventModel]) -> [EventModel] {
@@ -315,25 +314,13 @@ struct EventListView: View {
         ScrollViewReader { proxy in
             List {
                 ForEach(filteredEvents) { event in
-                    Button(action: {
-                        openPrimaryAction(for: event)
-                    }) {
-                        eventRow(event, isHovered: hoveredEventID == event.id)
-                    }
+                    eventCell(event)
                     .id(event.id)
                     .padding(.leading, -5)
-                    .buttonStyle(PlainButtonStyle())
-                    .onHover { hovering in
-                        if hovering {
-                            hoveredEventID = event.id
-                        } else if hoveredEventID == event.id {
-                            hoveredEventID = nil
-                        }
-                    }
                     .contextMenu {
                         if let meeting = event.meetingLink {
                             Button(meeting.displayLabel, systemImage: meeting.symbolName) {
-                                openURL(meeting.url)
+                                MeetingLauncher.open(meeting)
                             }
                             Button("Copy Meeting Link", systemImage: "doc.on.doc") {
                                 NSPasteboard.general.clearContents()
@@ -369,15 +356,64 @@ struct EventListView: View {
         Spacer(minLength: 0)
     }
 
-    private func openPrimaryAction(for event: EventModel) {
-        if joinMeetingOnEventTap, let meeting = event.meetingLink {
-            openURL(meeting.url)
-        } else if let url = event.calendarAppURL() {
+    @ViewBuilder
+    private func eventCell(_ event: EventModel) -> some View {
+        if event.type.isReminder {
+            Button {
+                openEventInCalendar(event)
+            } label: {
+                eventRow(event)
+            }
+            .buttonStyle(.plain)
+        } else {
+            HStack(alignment: .center, spacing: 2) {
+                Button {
+                    openEventInCalendar(event)
+                } label: {
+                    eventRow(event)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity)
+
+                if let meeting = event.meetingLink {
+                    meetingButton(meeting, eventID: event.id)
+                }
+            }
+        }
+    }
+
+    private func meetingButton(_ meeting: MeetingLink, eventID: String) -> some View {
+        Button {
+            MeetingLauncher.open(meeting)
+        } label: {
+            Image(systemName: meeting.symbolName)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(
+                    hoveredMeetingID == eventID ? Color.effectiveAccent : .white.opacity(0.55)
+                )
+                .frame(width: 22, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            if hovering {
+                hoveredMeetingID = eventID
+            } else if hoveredMeetingID == eventID {
+                hoveredMeetingID = nil
+            }
+        }
+        .help(meeting.displayLabel)
+        .accessibilityLabel(meeting.displayLabel)
+    }
+
+    private func openEventInCalendar(_ event: EventModel) {
+        if let url = event.calendarAppURL() {
             openURL(url)
         }
     }
 
-    private func eventRow(_ event: EventModel, isHovered: Bool) -> some View {
+    private func eventRow(_ event: EventModel) -> some View {
         if event.type.isReminder {
             let isCompleted: Bool
             if case .reminder(let completed) = event.type {
@@ -453,19 +489,6 @@ struct EventListView: View {
                         }
                     }
                     Spacer(minLength: 0)
-                    Group {
-                        if let meeting = event.meetingLink {
-                            Image(systemName: meeting.symbolName)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(
-                                    isHovered ? Color.effectiveAccent : .white.opacity(0.55)
-                                )
-                                .accessibilityLabel(meeting.displayLabel)
-                        } else {
-                            Color.clear
-                        }
-                    }
-                    .frame(width: 18, height: 18)
                     VStack(alignment: .trailing, spacing: 4) {
                         if event.isAllDay {
                             Text("All-day")

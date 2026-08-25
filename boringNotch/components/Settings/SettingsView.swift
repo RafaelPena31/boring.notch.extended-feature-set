@@ -881,10 +881,6 @@ struct CalendarSettings: View {
             .onChange(of: calendarLiveActivityEnabled) { _, enabled in
                 CalendarLiveActivityViewModel.shared.setEnabled(enabled && showCalendar)
             }
-            Defaults.Toggle(key: .joinMeetingOnEventTap) {
-                Text("Join meeting when selecting an event")
-            }
-            .disabled(!showCalendar)
             Defaults.Toggle(key: .hideCompletedReminders) {
                 Text("Hide completed reminders")
             }
