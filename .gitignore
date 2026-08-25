@@ -53,3 +53,5 @@ build/
 *.xcarchive
 *.dSYM
 
+# Local code signing
+.local-signing.env
