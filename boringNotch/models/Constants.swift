@@ -209,6 +209,7 @@ extension Defaults.Keys {
     
     // MARK: Calendar
     static let calendarLiveActivityEnabled = Key<Bool>("calendarLiveActivityEnabled", default: false)
+    static let joinMeetingOnEventTap = Key<Bool>("joinMeetingOnEventTap", default: true)
     static let calendarSelectionState = Key<CalendarSelectionState>("calendarSelectionState", default: .all)
     static let hideAllDayEvents = Key<Bool>("hideAllDayEvents", default: false)
     static let showFullEventTitles = Key<Bool>("showFullEventTitles", default: false)

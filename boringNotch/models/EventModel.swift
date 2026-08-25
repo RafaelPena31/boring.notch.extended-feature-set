@@ -67,6 +67,10 @@ extension EventType {
 }
 
 extension EventModel {
+    var meetingLink: MeetingLink? {
+        guard type.isEvent else { return nil }
+        return MeetingLinkDetector.detect(url: url, location: location, notes: notes)
+    }
     
     var eventStatus: EventStatus {
         if start > Date() {

@@ -577,12 +577,13 @@ struct ContentView: View {
                 PomodoroCompactLiveActivity()
             }
 
-            if calendarActivityActive {
-                CalendarLiveActivityRing(
+            if calendarActivityActive, let event = calendarActivity.activeEvent {
+                CalendarLiveActivityControl(
+                    event: event,
                     progress: calendarActivity.progress,
-                    size: compactActivitySize
+                    size: compactActivitySize,
+                    countdownLabel: calendarActivity.label
                 )
-                .help(calendarActivity.label)
             }
 
             if caffeineActivityActive {
@@ -608,12 +609,13 @@ struct ContentView: View {
                 PomodoroCompactLiveActivity()
             }
 
-            if calendarActivityActive {
-                CalendarLiveActivityRing(
+            if calendarActivityActive, let event = calendarActivity.activeEvent {
+                CalendarLiveActivityControl(
+                    event: event,
                     progress: calendarActivity.progress,
-                    size: compactActivitySize
+                    size: compactActivitySize,
+                    countdownLabel: calendarActivity.label
                 )
-                .help(calendarActivity.label)
             }
 
             if caffeineActivityActive {
