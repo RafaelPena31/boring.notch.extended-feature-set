@@ -23614,6 +23614,63 @@
           }
         }
       }
+    },
+    "%lldm" : {
+
+    },
+    "Auto-Start" : {
+
+    },
+    "Auto-start breaks" : {
+
+    },
+    "Auto-start focus" : {
+
+    },
+    "Cycles" : {
+
+    },
+    "Display" : {
+
+    },
+    "Durations" : {
+
+    },
+    "Focus: %lld minutes" : {
+
+    },
+    "Long Break: %lld minutes" : {
+
+    },
+    "Notifications" : {
+
+    },
+    "Pomodoro" : {
+
+    },
+    "Pomodoro Timer" : {
+
+    },
+    "Session %lld of %lld" : {
+
+    },
+    "Sessions before Long Break: %lld" : {
+
+    },
+    "Short Break: %lld minutes" : {
+
+    },
+    "Show countdown in menu bar" : {
+
+    },
+    "Show countdown on closed notch" : {
+
+    },
+    "Sound" : {
+
+    },
+    "Start Focus" : {
+
     }
   },
   "version" : "1.0"

@@ -29,6 +29,7 @@ struct TabSelectionView: View {
         if clipboardEnabled {
             result.append(TabModel(label: "Clipboard", icon: "clipboard.fill", view: .clipboard))
         }
+        result.append(TabModel(label: "Pomodoro", icon: "timer", view: .pomodoro))
         return result
     }
 

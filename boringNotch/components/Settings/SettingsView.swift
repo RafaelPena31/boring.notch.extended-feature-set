@@ -54,6 +54,9 @@ struct SettingsView: View {
                 NavigationLink(value: "Clipboard") {
                     Label("Clipboard", systemImage: "clipboard")
                 }
+                NavigationLink(value: "Pomodoro") {
+                    Label("Pomodoro", systemImage: "timer")
+                }
                 NavigationLink(value: "Shortcuts") {
                     Label("Shortcuts", systemImage: "keyboard")
                 }
@@ -90,6 +93,8 @@ struct SettingsView: View {
                     Shelf()
                 case "Clipboard":
                     ClipboardSettings()
+                case "Pomodoro":
+                    PomodoroSettings()
                 case "Shortcuts":
                     Shortcuts()
                 case "Extensions":
@@ -1844,6 +1849,72 @@ struct AccentCircleButton: View {
     }
 }
 
+struct PomodoroSettings: View {
+    @Default(.pomodoroFocusDuration) private var focusDuration
+    @Default(.pomodoroShortBreakDuration) private var shortBreakDuration
+    @Default(.pomodoroLongBreakDuration) private var longBreakDuration
+    @Default(.pomodoroSessionsBeforeLongBreak) private var sessionsBeforeLongBreak
+    @Default(.pomodoroNotificationSound) private var notificationSound
+
+    var body: some View {
+        Form {
+            Section("Durations") {
+                Stepper(value: $focusDuration, in: 300...3600, step: 300) {
+                    Text("Focus: \(focusDuration / 60) minutes")
+                }
+                Stepper(value: $shortBreakDuration, in: 60...1800, step: 60) {
+                    Text("Short Break: \(shortBreakDuration / 60) minutes")
+                }
+                Stepper(value: $longBreakDuration, in: 60...2700, step: 60) {
+                    Text("Long Break: \(longBreakDuration / 60) minutes")
+                }
+            }
+
+            Section("Cycles") {
+                Stepper(value: $sessionsBeforeLongBreak, in: 1...10) {
+                    Text("Sessions before Long Break: \(sessionsBeforeLongBreak)")
+                }
+            }
+
+            Section("Auto-Start") {
+                Defaults.Toggle(key: .pomodoroAutoStartBreaks) {
+                    Text("Auto-start breaks")
+                }
+                Defaults.Toggle(key: .pomodoroAutoStartFocus) {
+                    Text("Auto-start focus")
+                }
+            }
+
+            Section("Notifications") {
+                Picker("Sound", selection: $notificationSound) {
+                    ForEach(PomodoroSound.allCases, id: \.self) { sound in
+                        Text(soundLabel(sound)).tag(sound)
+                    }
+                }
+            }
+
+            Section("Display") {
+                Defaults.Toggle(key: .pomodoroShowLiveActivity) {
+                    Text("Show countdown on closed notch")
+                }
+                Defaults.Toggle(key: .pomodoroShowInMenuBar) {
+                    Text("Show countdown in menu bar")
+                }
+            }
+        }
+        .accentColor(.effectiveAccent)
+        .navigationTitle("Pomodoro")
+    }
+
+    private func soundLabel(_ sound: PomodoroSound) -> LocalizedStringKey {
+        switch sound {
+        case .chime: "Chime"
+        case .bell: "Bell"
+        case .silent: "Silent"
+        }
+    }
+}
+
 struct Shortcuts: View {
     var body: some View {
         Form {
@@ -1861,6 +1932,10 @@ struct Shortcuts: View {
             }
             Section {
                 KeyboardShortcuts.Recorder("Toggle Notch Open:", name: .toggleNotchOpen)
+            }
+            Section("Pomodoro") {
+                KeyboardShortcuts.Recorder("Start or pause:", name: .pomodoroToggle)
+                KeyboardShortcuts.Recorder("Skip phase:", name: .pomodoroSkip)
             }
         }
         .accentColor(.effectiveAccent)
