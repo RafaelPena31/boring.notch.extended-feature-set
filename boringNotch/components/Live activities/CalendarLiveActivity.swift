@@ -7,7 +7,6 @@
 //
 
 import AppKit
-import Defaults
 import SwiftUI
 
 struct CalendarLiveActivityRing: View {
@@ -37,7 +36,6 @@ struct CalendarLiveActivityRing: View {
 
 struct CalendarLiveActivityControl: View {
     @Environment(\.openURL) private var openURL
-    @Default(.joinMeetingOnEventTap) private var joinMeetingOnEventTap
 
     let event: EventModel
     let progress: Double
@@ -61,7 +59,7 @@ struct CalendarLiveActivityControl: View {
         .contextMenu {
             if let meeting {
                 Button(meeting.displayLabel, systemImage: meeting.symbolName) {
-                    openURL(meeting.url)
+                    MeetingLauncher.open(meeting)
                 }
                 Button("Copy Meeting Link", systemImage: "doc.on.doc") {
                     NSPasteboard.general.clearContents()
@@ -91,8 +89,8 @@ struct CalendarLiveActivityControl: View {
     }
 
     private func openPrimaryAction() {
-        if joinMeetingOnEventTap, let meeting {
-            openURL(meeting.url)
+        if let meeting {
+            MeetingLauncher.open(meeting)
         } else if let calendarURL = event.calendarAppURL() {
             openURL(calendarURL)
         }
