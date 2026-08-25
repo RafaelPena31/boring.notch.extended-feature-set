@@ -56,6 +56,9 @@ struct ShelfItemView: View {
                         viewModel.handleClick(event: event, view: nsview)
                     }
                 )
+
+                imageOperationOverlay
+                    .allowsHitTesting(false)
             } else {
                 Color.clear
                     .frame(width: 105)
@@ -101,6 +104,45 @@ struct ShelfItemView: View {
             .frame(width: 56, height: 56)
             .clipShape(RoundedRectangle(cornerRadius: 12))
             .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 2)
+    }
+
+    @ViewBuilder
+    private var imageOperationOverlay: some View {
+        switch viewModel.imageOperationState {
+        case .idle:
+            EmptyView()
+        case .converting(let format):
+            VStack(spacing: 5) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Converting to \(format.displayName)")
+                    .font(.caption2)
+                    .lineLimit(1)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
+            .background(.black.opacity(0.78), in: Capsule())
+            .accessibilityLabel("Converting image to \(format.displayName)")
+        case .succeeded(let name):
+            Label("Converted", systemImage: "checkmark.circle.fill")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(.green.opacity(0.9), in: Capsule())
+                .help(name)
+                .accessibilityLabel("Converted image as \(name)")
+        case .failed(let message):
+            Label("Conversion failed", systemImage: "exclamationmark.triangle.fill")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(.red.opacity(0.9), in: Capsule())
+                .help(message)
+                .accessibilityLabel("Image conversion failed: \(message)")
+        }
     }
 
     private var textView: some View {
