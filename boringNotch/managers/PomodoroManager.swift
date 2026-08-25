@@ -102,6 +102,7 @@ final class PomodoroManager: ObservableObject {
     }
 
     func skip() {
+        guard hasStarted else { return }
         pause()
         advancePhase()
     }

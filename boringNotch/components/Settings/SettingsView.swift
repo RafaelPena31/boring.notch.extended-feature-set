@@ -411,7 +411,7 @@ struct KeepAwakeSettings: View {
                 }
 
                 Toggle("Keep this Mac awake", isOn: activeBinding)
-                    .disabled(!caffeineEnabled)
+                    .disabled(!caffeineEnabled && !caffeineManager.isActive)
 
                 if caffeineManager.isActive {
                     Label("Keep Awake is active", systemImage: "cup.and.heat.waves.fill")

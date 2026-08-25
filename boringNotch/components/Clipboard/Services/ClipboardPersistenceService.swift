@@ -123,15 +123,17 @@ final class ClipboardPersistenceService: @unchecked Sendable {
     /// Writes any pending snapshot synchronously. Must be called from `applicationWillTerminate`,
     /// otherwise the last debounce window's captures are lost on quit.
     func flush() {
-        lock.lock()
-        pendingWrite?.cancel()
-        pendingWrite = nil
-        let items = pendingItems
-        pendingItems = nil
-        lock.unlock()
+        queue.sync {
+            lock.lock()
+            pendingWrite?.cancel()
+            pendingWrite = nil
+            let items = pendingItems
+            pendingItems = nil
+            lock.unlock()
 
-        guard let items else { return }
-        write(items)
+            guard let items else { return }
+            write(items)
+        }
     }
 
     private func writePending() {

@@ -337,4 +337,3 @@ git commit --no-gpg-sign -m "fix: polish productivity feature integration"
 ```
 
 Skip this commit when the worktree is already clean.
-

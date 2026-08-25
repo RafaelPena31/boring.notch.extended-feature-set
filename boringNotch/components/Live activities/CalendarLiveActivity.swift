@@ -31,4 +31,3 @@ struct CalendarLiveActivityRing: View {
         .frame(width: size, height: size)
     }
 }
-
