@@ -716,6 +716,7 @@ struct Media: View {
     @Default(.sneakPeekStyles) var sneakPeekStyles
 
     @Default(.enableLyrics) var enableLyrics
+    @Default(.musicPlayerLayout) private var musicPlayerLayout
     @Default(.showMediaProgressBar) private var showMediaProgressBar
     @Default(.mediaProgressBarThickness) private var mediaProgressBarThickness
     @Default(.mediaProgressBarColor) private var mediaProgressBarColor
@@ -814,6 +815,11 @@ struct Media: View {
             }
             
             Section {
+                Picker("Open player layout", selection: $musicPlayerLayout) {
+                    ForEach(MusicPlayerLayout.allCases) { layout in
+                        Text(layout.rawValue).tag(layout)
+                    }
+                }
                 MusicSlotConfigurationView()
                 Defaults.Toggle(key: .enableLyrics) {
                     HStack {
@@ -824,7 +830,7 @@ struct Media: View {
             } header: {
                 Text("Media controls")
             }  footer: {
-                Text("Customize which controls appear in the music player. Volume expands when active.")
+                Text("Compact layout shows a focused player without tabs. Standard controls remain customizable, including audio output.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
