@@ -49,9 +49,9 @@ struct NotificationFocusFilterIntent: SetFocusFilterIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        let categories = allowedCategories?.map(\.rawValue)
-        Defaults[.notificationFocusOverrideActive] = categories != nil
-        Defaults[.notificationFocusAllowedCategories] = categories ?? []
+        let categories = allowedCategories?.map(\.rawValue) ?? []
+        Defaults[.notificationFocusOverrideActive] = true
+        Defaults[.notificationFocusAllowedCategories] = categories
         await MainActor.run { FocusModeManager.shared.refresh() }
         return .result()
     }

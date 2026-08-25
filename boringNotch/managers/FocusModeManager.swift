@@ -32,6 +32,7 @@ final class FocusModeManager: ObservableObject {
         monitoringTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 self?.refresh()
+                await self?.refreshFilterOverride()
                 try? await Task.sleep(for: .seconds(2))
             }
         }
@@ -50,6 +51,7 @@ final class FocusModeManager: ObservableObject {
         }
         authorizationStatus = status
         refresh()
+        await refreshFilterOverride()
     }
 
     func refresh() {
@@ -63,5 +65,35 @@ final class FocusModeManager: ObservableObject {
                 SystemNotificationCategory.init(rawValue:)
             )
         )
+    }
+
+    /// Resolves the filter attached to the currently active Focus. The public
+    /// API exposes the configured intent, but deliberately not the Focus name.
+    func refreshFilterOverride() async {
+        guard isFocused == true else {
+            Defaults[.notificationFocusOverrideActive] = false
+            Defaults[.notificationFocusAllowedCategories] = []
+            hasActiveOverride = false
+            overrideCategories = []
+            return
+        }
+
+        do {
+            let current = try await NotificationFocusFilterIntent.current
+            let categories = Set(
+                (current.allowedCategories ?? []).compactMap {
+                    SystemNotificationCategory(rawValue: $0.rawValue)
+                }
+            )
+            Defaults[.notificationFocusOverrideActive] = true
+            Defaults[.notificationFocusAllowedCategories] = categories.map(\.rawValue)
+            hasActiveOverride = true
+            overrideCategories = categories
+        } catch {
+            Defaults[.notificationFocusOverrideActive] = false
+            Defaults[.notificationFocusAllowedCategories] = []
+            hasActiveOverride = false
+            overrideCategories = []
+        }
     }
 }

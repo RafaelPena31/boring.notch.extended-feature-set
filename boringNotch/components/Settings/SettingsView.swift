@@ -60,6 +60,9 @@ struct SettingsView: View {
                 NavigationLink(value: "Pomodoro") {
                     Label("Pomodoro", systemImage: "timer")
                 }
+                NavigationLink(value: "Notifications") {
+                    Label("Notifications", systemImage: "bell.badge")
+                }
                 NavigationLink(value: "Shortcuts") {
                     Label("Shortcuts", systemImage: "keyboard")
                 }
@@ -100,6 +103,8 @@ struct SettingsView: View {
                     ClipboardSettings()
                 case "Pomodoro":
                     PomodoroSettings()
+                case "Notifications":
+                    NotificationSettingsView()
                 case "Shortcuts":
                     Shortcuts()
                 case "Extensions":
