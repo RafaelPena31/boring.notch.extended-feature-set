@@ -12,6 +12,7 @@ struct BoringHeader: View {
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = BoringViewCoordinator.shared
+    @ObservedObject var caffeineManager = CaffeineManager.shared
 
     var body: some View {
         HStack(spacing: 0) {
@@ -53,6 +54,40 @@ struct BoringHeader: View {
                                     }
                             }
                             .buttonStyle(PlainButtonStyle())
+                        }
+                        if Defaults[.caffeineEnabled] {
+                            Button(action: caffeineManager.toggle) {
+                                Capsule()
+                                    .fill(.black)
+                                    .frame(width: 30, height: 30)
+                                    .overlay {
+                                        Image(
+                                            systemName: caffeineManager.isActive
+                                                ? "cup.and.heat.waves.fill"
+                                                : "cup.and.heat.waves"
+                                        )
+                                        .foregroundStyle(
+                                            caffeineManager.isActive
+                                                ? Color.effectiveAccent
+                                                : .white
+                                        )
+                                        .padding()
+                                        .imageScale(.medium)
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .help(
+                                caffeineManager.lastError
+                                    ?? (caffeineManager.isActive
+                                        ? "Disable Keep Awake"
+                                        : "Enable Keep Awake")
+                            )
+                            .accessibilityLabel(
+                                caffeineManager.isActive
+                                    ? "Disable Keep Awake"
+                                    : "Enable Keep Awake"
+                            )
+                            .animation(.easeInOut(duration: 0.2), value: caffeineManager.isActive)
                         }
                         if Defaults[.settingsIconInNotch] {
                             Button(action: {

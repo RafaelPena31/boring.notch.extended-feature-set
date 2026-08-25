@@ -77,6 +77,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidBecomeActive(_ notification: Notification) {
         Task { @MainActor in
             PomodoroManager.shared.reconcile()
+            CaffeineManager.shared.reconcile()
         }
     }
 
@@ -91,6 +92,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             screenUnlockedObserver = nil
         }
         MusicManager.shared.destroy()
+        CaffeineManager.shared.deactivate()
         cleanupDragDetectors()
         cleanupWindows()
         ClipboardMonitor.shared.stop()

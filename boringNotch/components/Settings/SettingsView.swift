@@ -45,6 +45,9 @@ struct SettingsView: View {
                 NavigationLink(value: "Battery") {
                     Label("Battery", systemImage: "battery.100.bolt")
                 }
+                NavigationLink(value: "KeepAwake") {
+                    Label("Keep Awake", systemImage: "cup.and.heat.waves")
+                }
 //                NavigationLink(value: "Downloads") {
 //                    Label("Downloads", systemImage: "square.and.arrow.down")
 //                }
@@ -89,6 +92,8 @@ struct SettingsView: View {
                     HUD()
                 case "Battery":
                     Charge()
+                case "KeepAwake":
+                    KeepAwakeSettings()
                 case "Shelf":
                     Shelf()
                 case "Clipboard":
@@ -389,6 +394,102 @@ struct Charge: View {
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Battery")
+    }
+}
+
+struct KeepAwakeSettings: View {
+    @ObservedObject private var caffeineManager = CaffeineManager.shared
+    @Default(.caffeineEnabled) private var caffeineEnabled
+    @Default(.caffeineLowBatteryCutoff) private var lowBatteryCutoff
+    @Default(.caffeineSafetyTimeout) private var safetyTimeout
+
+    var body: some View {
+        Form {
+            Section {
+                Defaults.Toggle(key: .caffeineEnabled) {
+                    Text("Enable Keep Awake")
+                }
+
+                Toggle("Keep this Mac awake", isOn: activeBinding)
+                    .disabled(!caffeineEnabled)
+
+                if caffeineManager.isActive {
+                    Label("Keep Awake is active", systemImage: "cup.and.heat.waves.fill")
+                        .foregroundStyle(Color.effectiveAccent)
+                }
+
+                if let error = caffeineManager.lastError {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.red)
+                        .font(.caption)
+                }
+            } header: {
+                Text("Keep Awake")
+            } footer: {
+                Text("Prevents the display from sleeping until you turn it off or a safety limit is reached.")
+            }
+
+            if caffeineEnabled {
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("Low battery cutoff")
+                            Spacer()
+                            Text("\(lowBatteryCutoff)%")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { Double(lowBatteryCutoff) },
+                                set: { lowBatteryCutoff = Int($0) }
+                            ),
+                            in: 5...50,
+                            step: 5
+                        )
+                    }
+                } header: {
+                    Text("Battery Safety")
+                } footer: {
+                    Text("Automatically disables Keep Awake on battery at this charge level.")
+                }
+
+                Section {
+                    Picker("Auto-disable after", selection: $safetyTimeout) {
+                        ForEach(CaffeineTimeoutOption.allCases) { option in
+                            Text(option.label).tag(option)
+                        }
+                    }
+                } header: {
+                    Text("Safety Timeout")
+                } footer: {
+                    Text("The timeout starts when Keep Awake is activated.")
+                }
+            }
+        }
+        .onChange(of: caffeineEnabled) { _, enabled in
+            if !enabled {
+                caffeineManager.deactivate()
+            }
+        }
+        .onChange(of: lowBatteryCutoff) {
+            caffeineManager.reconcile()
+        }
+        .accentColor(.effectiveAccent)
+        .navigationTitle("Keep Awake")
+    }
+
+    private var activeBinding: Binding<Bool> {
+        Binding(
+            get: { caffeineManager.isActive },
+            set: { active in
+                if active {
+                    caffeineManager.activate()
+                } else {
+                    caffeineManager.deactivate()
+                }
+            }
+        )
     }
 }
 
