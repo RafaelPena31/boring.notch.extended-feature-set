@@ -10,6 +10,7 @@ final class XPCHelperClient: NSObject {
     private var remoteService: RemoteXPCService<BoringNotchXPCHelperProtocol>?
     private var connection: NSXPCConnection?
     private var lastKnownAuthorization: Bool?
+    private let notificationDelegate = NotificationXPCDelegate()
     private var monitoringTask: Task<Void, Never>?
     
     deinit {
@@ -26,11 +27,14 @@ final class XPCHelperClient: NSObject {
         }
         
         let conn = NSXPCConnection(serviceName: serviceName)
+        conn.exportedInterface = NSXPCInterface(with: (any BoringNotchXPCHelperDelegate).self)
+        conn.exportedObject = notificationDelegate
         
         conn.interruptionHandler = { [weak self] in
             Task { @MainActor in
                 self?.connection = nil
                 self?.remoteService = nil
+                NotificationCenter.default.post(name: .notificationHelperDisconnected, object: nil)
             }
         }
         
@@ -38,6 +42,7 @@ final class XPCHelperClient: NSObject {
             Task { @MainActor in
                 self?.connection = nil
                 self?.remoteService = nil
+                NotificationCenter.default.post(name: .notificationHelperDisconnected, object: nil)
             }
         }
         
@@ -243,8 +248,131 @@ final class XPCHelperClient: NSObject {
     }
 }
 
-extension Notification.Name {
-    static let accessibilityAuthorizationChanged = Notification.Name("accessibilityAuthorizationChanged")
+// MARK: - Notification Center banners
+
+private final class NotificationXPCDelegate: NSObject, BoringNotchXPCHelperDelegate {
+    func notificationDidAppear(_ payload: [String: String]) {
+        NotificationCenter.default.post(
+            name: .systemNotificationDidAppear,
+            object: nil,
+            userInfo: payload
+        )
+    }
+
+    func notificationDidDisappear(_ token: String) {
+        NotificationCenter.default.post(
+            name: .systemNotificationDidDisappear,
+            object: nil,
+            userInfo: ["token": token]
+        )
+    }
 }
 
+extension XPCHelperClient {
+    nonisolated func startNotificationWatching() async -> Bool {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            return try await service.withContinuation { service, continuation in
+                service.startNotificationWatching { started in
+                    continuation.resume(returning: started)
+                }
+            }
+        } catch {
+            return false
+        }
+    }
+
+    nonisolated func stopNotificationWatching() {
+        Task {
+            guard let service = await MainActor.run(body: { getRemoteService() }) else { return }
+            try? await service.withService { $0.stopNotificationWatching() }
+        }
+    }
+
+    nonisolated func replyToNotification(token: String, text: String) async -> Bool {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            return try await service.withContinuation { service, continuation in
+                service.replyToNotification(token, text: text) { sent in
+                    continuation.resume(returning: sent)
+                }
+            }
+        } catch {
+            return false
+        }
+    }
+
+    nonisolated func sendIMessage(_ text: String, toChatNamed name: String) async -> Bool {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            return try await service.withContinuation { service, continuation in
+                service.sendIMessage(text, toChatNamed: name) { sent in
+                    continuation.resume(returning: sent)
+                }
+            }
+        } catch {
+            return false
+        }
+    }
+
+    nonisolated func performNotificationAction(token: String, name: String) async -> Bool {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            return try await service.withContinuation { service, continuation in
+                service.performNotificationAction(token, name: name) { performed in
+                    continuation.resume(returning: performed)
+                }
+            }
+        } catch {
+            return false
+        }
+    }
+
+    nonisolated func openNotification(token: String) async -> Bool {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            return try await service.withContinuation { service, continuation in
+                service.openNotification(token) { opened in
+                    continuation.resume(returning: opened)
+                }
+            }
+        } catch {
+            return false
+        }
+    }
+
+    nonisolated func dismissNotification(token: String) async -> Bool {
+        do {
+            let service = await MainActor.run { ensureRemoteService() }
+            return try await service.withContinuation { service, continuation in
+                service.dismissNotification(token) { dismissed in
+                    continuation.resume(returning: dismissed)
+                }
+            }
+        } catch {
+            return false
+        }
+    }
+
+    nonisolated func holdNotification(token: String) {
+        Task {
+            let service = await MainActor.run { ensureRemoteService() }
+            try? await service.withService { $0.holdNotification(token) }
+        }
+    }
+
+    nonisolated func releaseNotification(token: String) {
+        Task {
+            guard let service = await MainActor.run(body: { getRemoteService() }) else { return }
+            try? await service.withService { $0.releaseNotification(token) }
+        }
+    }
+}
+
+extension Notification.Name {
+    static let accessibilityAuthorizationChanged = Notification.Name("accessibilityAuthorizationChanged")
+    static let systemNotificationDidAppear = Notification.Name("systemNotificationDidAppear")
+    static let systemNotificationDidDisappear = Notification.Name("systemNotificationDidDisappear")
+    static let notificationHelperDisconnected = Notification.Name("notificationHelperDisconnected")
+}
 

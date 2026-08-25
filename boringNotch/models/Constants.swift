@@ -212,6 +212,34 @@ extension Defaults.Keys {
     static let clipboardCaptureImages = Key<Bool>("clipboardCaptureImages", default: true)
     static let clipboardCaptureFiles = Key<Bool>("clipboardCaptureFiles", default: true)
     static let clipboardIgnoreConcealed = Key<Bool>("clipboardIgnoreConcealed", default: true)
+
+    // MARK: Notifications
+    static let notificationsEnabled = Key<Bool>("notificationsEnabled", default: false)
+    static let notificationSetupCompleted = Key<Bool>("notificationSetupCompleted", default: false)
+    static let notificationAllowedApps = Key<[String]>(
+        "notificationAllowedApps",
+        default: NotificationSourceApp.suggested.map(\.bundleID)
+    )
+    static let notificationCategoryPreferences = Key<[NotificationCategoryPreference]>(
+        "notificationCategoryPreferences",
+        default: NotificationCategoryPreference.recommended
+    )
+    static let notificationContactsEnabled = Key<Bool>(
+        "notificationContactsEnabled",
+        default: false
+    )
+    static let notificationAppleIntelligenceEnabled = Key<Bool>(
+        "notificationAppleIntelligenceEnabled",
+        default: false
+    )
+    static let notificationFocusOverrideActive = Key<Bool>(
+        "notificationFocusOverrideActive",
+        default: false
+    )
+    static let notificationFocusAllowedCategories = Key<[String]>(
+        "notificationFocusAllowedCategories",
+        default: []
+    )
     
     // MARK: Calendar
     static let calendarLiveActivityEnabled = Key<Bool>("calendarLiveActivityEnabled", default: false)

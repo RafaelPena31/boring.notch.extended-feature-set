@@ -97,6 +97,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         cleanupWindows()
         ClipboardMonitor.shared.stop()
         ClipboardPersistenceService.shared.flush()
+        SystemNotificationManager.shared.stop()
+        FocusModeManager.shared.stopMonitoring()
         XPCHelperClient.shared.stopMonitoringAccessibilityAuthorization()
     }
 
@@ -455,6 +457,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         ClipboardMonitor.shared.startIfEnabled()
         ClipboardStore.shared.collectGarbage()
+
+        Task { @MainActor in
+            FocusModeManager.shared.startMonitoring()
+            if Defaults[.notificationsEnabled] {
+                _ = await SystemNotificationManager.shared.start(promptIfNeeded: false)
+            }
+        }
 
         if coordinator.firstLaunch {
             DispatchQueue.main.async {

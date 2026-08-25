@@ -26,9 +26,12 @@ struct ContentView: View {
     @ObservedObject var calendarActivity = CalendarLiveActivityViewModel.shared
     @ObservedObject var pomodoroManager = PomodoroManager.shared
     @ObservedObject var caffeineManager = CaffeineManager.shared
+    @ObservedObject var notificationManager = SystemNotificationManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
+    @State private var notificationPresentationWasOpen: Bool?
+    @State private var notificationPresentationView: NotchViews?
 
     @State private var gestureProgress: CGFloat = .zero
 
@@ -112,6 +115,14 @@ struct ContentView: View {
         pomodoroActivityActive || calendarActivityActive || caffeineActivityActive
     }
 
+    private var notificationActivityActive: Bool {
+        notificationManager.activeNotification != nil
+            && vm.notchState == .closed
+            && !vm.hideOnClosed
+            && !closedSystemHUDActive
+            && !(coordinator.expandingView.type == .battery && coordinator.expandingView.show)
+    }
+
     private var mediaProgressVisible: Bool {
         showMediaProgressBar
             && vm.notchState == .closed
@@ -124,6 +135,7 @@ struct ContentView: View {
             && !coordinator.sneakPeek.show
             && !coordinator.expandingView.show
             && !closedSystemHUDActive
+            && notificationManager.activeNotification == nil
     }
 
     private var compactActivitySize: CGFloat {
@@ -139,6 +151,9 @@ struct ContentView: View {
             && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
         {
             chinWidth = 640
+        } else if notificationActivityActive,
+                  let notification = notificationManager.activeNotification {
+            chinWidth += notification.detectedCode == nil ? 270 : 165
         } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
             && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle)
             && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
@@ -271,6 +286,12 @@ struct ContentView: View {
                             }
                         }
                     }
+                    .onReceive(NotificationCenter.default.publisher(for: .notificationShouldAutoOpen)) { _ in
+                        handleAutomaticNotificationOpening()
+                    }
+                    .onReceive(NotificationCenter.default.publisher(for: .notificationPresentationEnded)) { _ in
+                        restoreAfterAutomaticNotification()
+                    }
                     .onChange(of: vm.notchState) { _, newState in
                         if newState == .closed && isHovering {
                             withAnimation {
@@ -400,6 +421,10 @@ struct ContentView: View {
                       } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .pomodoro) && vm.notchState == .closed {
                           InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(.opacity)
+                      } else if notificationActivityActive,
+                                let notification = notificationManager.activeNotification {
+                          NotificationCompactLiveActivity(notification: notification)
+                              .frame(alignment: .center)
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                           MusicLiveActivity()
                               .frame(alignment: .center)
@@ -408,6 +433,14 @@ struct ContentView: View {
                               .frame(alignment: .center)
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
                           BoringFaceAnimation()
+                       } else if vm.notchState == .open,
+                                 notificationManager.activeNotification != nil {
+                           Rectangle()
+                               .fill(.clear)
+                               .frame(
+                                   width: vm.closedNotchSize.width - 20,
+                                   height: max(24, vm.effectiveClosedNotchHeight)
+                               )
                        } else if vm.notchState == .open {
                            BoringHeader()
                                .frame(height: max(24, vm.effectiveClosedNotchHeight))
@@ -471,15 +504,19 @@ struct ContentView: View {
               .zIndex(2)
             if vm.notchState == .open {
                 VStack {
-                    switch coordinator.currentView {
-                    case .home:
-                        NotchHomeView(albumArtNamespace: albumArtNamespace)
-                    case .shelf:
-                        ShelfView()
-                    case .clipboard:
-                        ClipboardView()
-                    case .pomodoro:
-                        PomodoroView()
+                    if let notification = notificationManager.activeNotification {
+                        NotificationExpandedView(notification: notification)
+                    } else {
+                        switch coordinator.currentView {
+                        case .home:
+                            NotchHomeView(albumArtNamespace: albumArtNamespace)
+                        case .shelf:
+                            ShelfView()
+                        case .clipboard:
+                            ClipboardView()
+                        case .pomodoro:
+                            PomodoroView()
+                        }
                     }
                 }
                 .transition(
@@ -751,6 +788,12 @@ struct ContentView: View {
     private func handleHover(_ hovering: Bool) {
         if coordinator.firstLaunch { return }
         hoverTask?.cancel()
+
+        if hovering {
+            notificationManager.holdActive()
+        } else {
+            notificationManager.resumeExpiry(after: 3)
+        }
         
         if hovering {
             withAnimation(animationSpring) {
@@ -792,6 +835,32 @@ struct ContentView: View {
                     }
                 }
             }
+        }
+    }
+
+    private func handleAutomaticNotificationOpening() {
+        guard notificationManager.activeNotification != nil,
+              vm.screenUUID == nil || vm.screenUUID == coordinator.selectedScreenUUID
+        else { return }
+
+        if notificationPresentationWasOpen == nil {
+            notificationPresentationWasOpen = vm.notchState == .open
+            notificationPresentationView = coordinator.currentView
+        }
+        if vm.notchState == .closed { doOpen() }
+    }
+
+    private func restoreAfterAutomaticNotification() {
+        guard let wasOpen = notificationPresentationWasOpen else { return }
+        if let previousView = notificationPresentationView {
+            coordinator.currentView = previousView
+        }
+        notificationPresentationWasOpen = nil
+        notificationPresentationView = nil
+
+        if !wasOpen, vm.notchState == .open,
+           !SharingStateManager.shared.preventNotchClose {
+            withAnimation(animationSpring) { vm.close() }
         }
     }
 
