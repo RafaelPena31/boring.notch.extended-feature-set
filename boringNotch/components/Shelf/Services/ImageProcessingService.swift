@@ -14,36 +14,37 @@ import PDFKit
 import UniformTypeIdentifiers
 import ImageIO
 
-/// Options for image conversion
-struct ImageConversionOptions {
-    enum ImageFormat {
-        case png, jpeg, heic, tiff, bmp
-        
-        var utType: UTType {
-            switch self {
-            case .png: return .png
-            case .jpeg: return .jpeg
-            case .heic: return .heic
-            case .tiff: return .tiff
-            case .bmp: return .bmp
-            }
-        }
-        
-        var fileExtension: String {
-            switch self {
-            case .png: return "png"
-            case .jpeg: return "jpg"
-            case .heic: return "heic"
-            case .tiff: return "tiff"
-            case .bmp: return "bmp"
-            }
+enum ImageConversionFormat: String, CaseIterable, Identifiable, Sendable {
+    case png
+    case jpeg
+    case heic
+    case webP
+
+    var id: String { rawValue }
+
+    var contentType: UTType {
+        switch self {
+        case .png: .png
+        case .jpeg: .jpeg
+        case .heic: .heic
+        case .webP: .webP
         }
     }
-    
-    let format: ImageFormat
-    let compressionQuality: Double // 0.0 to 1.0, only applies to JPEG/HEIC
-    let maxDimension: CGFloat? // Max width or height, nil for no scaling
-    let removeMetadata: Bool
+
+    var fileExtension: String {
+        switch self {
+        case .jpeg: "jpg"
+        case .webP: "webp"
+        default: rawValue
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .webP: "WebP"
+        default: rawValue.uppercased()
+        }
+    }
 }
 
 /// Service for processing images (background removal, conversion, PDF creation)
@@ -123,119 +124,69 @@ final class ImageProcessingService {
     
     // MARK: - Convert Image
     
-    /// Converts an image with specified options
-    func convertImage(from url: URL, options: ImageConversionOptions) async throws -> URL? {
-        guard var inputImage = NSImage(contentsOf: url) else {
-            throw ImageProcessingError.invalidImage
+    func supportedOutputFormats(for sourceURL: URL) -> [ImageConversionFormat] {
+        let sourceType = sourceURL.accessSecurityScopedResource { url in
+            (try? url.resourceValues(forKeys: [.contentTypeKey]).contentType)
         }
-        
-        // Scale image if needed
-        if let maxDim = options.maxDimension {
-            inputImage = scaleImage(inputImage, maxDimension: maxDim)
+        let destinationTypes = Set(
+            (CGImageDestinationCopyTypeIdentifiers() as? [String]) ?? []
+        )
+
+        return ImageConversionFormat.allCases.filter { format in
+            format.contentType != sourceType
+                && destinationTypes.contains(format.contentType.identifier)
         }
-        
-        // Get image data based on format
-        let imageData: Data?
-        
-        if options.removeMetadata {
-            // Create new image without metadata
-            guard let cgImage = inputImage.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-                throw ImageProcessingError.invalidImage
+    }
+
+    func convertImage(
+        from sourceURL: URL,
+        to format: ImageConversionFormat,
+        suggestedName: String
+    ) async throws -> URL {
+        guard supportedOutputFormats(for: sourceURL).contains(format) else {
+            throw ImageProcessingError.unsupportedFormat
+        }
+
+        let data = try await Task.detached(priority: .userInitiated) {
+            try sourceURL.accessSecurityScopedResource { scopedURL in
+                guard let source = CGImageSourceCreateWithURL(scopedURL as CFURL, nil),
+                      let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+                else {
+                    throw ImageProcessingError.invalidImage
+                }
+
+                let output = NSMutableData()
+                guard let destination = CGImageDestinationCreateWithData(
+                    output,
+                    format.contentType.identifier as CFString,
+                    1,
+                    nil
+                ) else {
+                    throw ImageProcessingError.unsupportedFormat
+                }
+
+                let properties: CFDictionary?
+                switch format {
+                case .jpeg, .heic, .webP:
+                    properties = [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary
+                case .png:
+                    properties = nil
+                }
+
+                CGImageDestinationAddImage(destination, image, properties)
+                guard CGImageDestinationFinalize(destination) else {
+                    throw ImageProcessingError.conversionFailed
+                }
+                return output as Data
             }
-            
-            let newImage = NSImage(cgImage: cgImage, size: inputImage.size)
-            imageData = try convertToFormat(newImage, format: options.format, quality: options.compressionQuality)
-        } else {
-            imageData = try convertToFormat(inputImage, format: options.format, quality: options.compressionQuality)
-        }
-        
-        guard let data = imageData else {
-            throw ImageProcessingError.conversionFailed
-        }
-        
-        // Create temporary file
-        let originalName = url.deletingPathExtension().lastPathComponent
-        let newName = "\(originalName)_converted.\(options.format.fileExtension)"
-        
+        }.value
+
         guard let tempURL = await TemporaryFileStorageService.shared.createTempFile(
-            for: .data(data, suggestedName: newName)
+            for: .data(data, suggestedName: suggestedName)
         ) else {
             throw ImageProcessingError.saveFailed
         }
-        
         return tempURL
-    }
-    
-    private func convertToFormat(_ image: NSImage, format: ImageConversionOptions.ImageFormat, quality: Double) throws -> Data? {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData) else {
-            return nil
-        }
-        
-        switch format {
-        case .png:
-            return bitmap.representation(using: .png, properties: [:])
-        case .jpeg:
-            let properties: [NSBitmapImageRep.PropertyKey: Any] = [
-                .compressionFactor: quality
-            ]
-            return bitmap.representation(using: .jpeg, properties: properties)
-        case .tiff:
-            let properties: [NSBitmapImageRep.PropertyKey: Any] = [
-                .compressionMethod: NSNumber(value: NSBitmapImageRep.TIFFCompression.lzw.rawValue)
-            ]
-            return bitmap.representation(using: .tiff, properties: properties)
-        case .bmp:
-            return bitmap.representation(using: .bmp, properties: [:])
-        case .heic:
-            // HEIC requires using CIContext
-            guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-                return nil
-            }
-            let ciImage = CIImage(cgImage: cgImage)
-            let context = CIContext()
-            let colorSpace = CGColorSpace(name: CGColorSpace.sRGB)!
-            let options: [CIImageRepresentationOption: Any] = [
-                CIImageRepresentationOption(rawValue: kCGImageDestinationLossyCompressionQuality as String): quality
-            ]
-            return try? context.heifRepresentation(of: ciImage, format: .RGBA8, colorSpace: colorSpace, options: options)
-        }
-    }
-    
-    private func scaleImage(_ image: NSImage, maxDimension: CGFloat) -> NSImage {
-        guard maxDimension > 0 else { return image }
-
-        guard let srcCG = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            return image
-        }
-
-        let srcMax = max(srcCG.width, srcCG.height)
-        if CGFloat(srcMax) <= maxDimension {
-            return image // no downscaling needed
-        }
-
-        let scale = maxDimension / CGFloat(srcMax)
-
-        let ciImage = CIImage(cgImage: srcCG)
-        let lanczos = CIFilter.lanczosScaleTransform()
-        lanczos.inputImage = ciImage
-        lanczos.scale = Float(scale)
-        lanczos.aspectRatio = 1.0
-
-        guard let output = lanczos.outputImage else {
-            return image
-        }
-
-        // Preserve the source color space for exact color matching
-        let colorSpace = srcCG.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB)!
-        let ciContext = CIContext(options: [.workingColorSpace: colorSpace])
-
-        // Render using the CIContext with matching color space
-        guard let dstCG = ciContext.createCGImage(output, from: output.extent, format: .RGBA8, colorSpace: colorSpace) else {
-            return image
-        }
-
-        return NSImage(cgImage: dstCG, size: NSSize(width: dstCG.width, height: dstCG.height))
     }
     
     // MARK: - Create PDF
@@ -297,6 +248,7 @@ enum ImageProcessingError: LocalizedError {
     case invalidImage
     case backgroundRemovalFailed
     case conversionFailed
+    case unsupportedFormat
     case pdfCreationFailed
     case noImagesProvided
     case saveFailed
@@ -309,6 +261,8 @@ enum ImageProcessingError: LocalizedError {
             return "Failed to remove background from image"
         case .conversionFailed:
             return "Failed to convert image format"
+        case .unsupportedFormat:
+            return "This image format is not supported by this version of macOS"
         case .pdfCreationFailed:
             return "Failed to create PDF from images"
         case .noImagesProvided:
