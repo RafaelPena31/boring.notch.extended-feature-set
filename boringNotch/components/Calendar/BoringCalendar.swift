@@ -5,6 +5,7 @@
 //  Created by Harsh Vardhan  Goswami  on 08/09/24.
 //
 
+import AppKit
 import Defaults
 import SwiftUI
 
@@ -269,6 +270,8 @@ struct EventListView: View {
     let events: [EventModel]
     @Default(.autoScrollToNextEvent) private var autoScrollToNextEvent
     @Default(.showFullEventTitles) private var showFullEventTitles
+    @Default(.joinMeetingOnEventTap) private var joinMeetingOnEventTap
+    @State private var hoveredEventID: String?
 
 
     static func filteredEvents(events: [EventModel]) -> [EventModel] {
@@ -313,15 +316,40 @@ struct EventListView: View {
             List {
                 ForEach(filteredEvents) { event in
                     Button(action: {
-                        if let url = event.calendarAppURL() {
-                            openURL(url)
-                        }
+                        openPrimaryAction(for: event)
                     }) {
-                        eventRow(event)
+                        eventRow(event, isHovered: hoveredEventID == event.id)
                     }
                     .id(event.id)
                     .padding(.leading, -5)
                     .buttonStyle(PlainButtonStyle())
+                    .onHover { hovering in
+                        if hovering {
+                            hoveredEventID = event.id
+                        } else if hoveredEventID == event.id {
+                            hoveredEventID = nil
+                        }
+                    }
+                    .contextMenu {
+                        if let meeting = event.meetingLink {
+                            Button(meeting.displayLabel, systemImage: meeting.symbolName) {
+                                openURL(meeting.url)
+                            }
+                            Button("Copy Meeting Link", systemImage: "doc.on.doc") {
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(
+                                    meeting.url.absoluteString,
+                                    forType: .string
+                                )
+                            }
+                            Divider()
+                        }
+                        if let url = event.calendarAppURL() {
+                            Button("Open in Calendar", systemImage: "calendar") {
+                                openURL(url)
+                            }
+                        }
+                    }
                     .listRowSeparator(.automatic)
                     .listRowSeparatorTint(.gray.opacity(0.2))
                     .listRowBackground(Color.clear)
@@ -341,7 +369,15 @@ struct EventListView: View {
         Spacer(minLength: 0)
     }
 
-    private func eventRow(_ event: EventModel) -> some View {
+    private func openPrimaryAction(for event: EventModel) {
+        if joinMeetingOnEventTap, let meeting = event.meetingLink {
+            openURL(meeting.url)
+        } else if let url = event.calendarAppURL() {
+            openURL(url)
+        }
+    }
+
+    private func eventRow(_ event: EventModel, isHovered: Bool) -> some View {
         if event.type.isReminder {
             let isCompleted: Bool
             if case .reminder(let completed) = event.type {
@@ -417,6 +453,19 @@ struct EventListView: View {
                         }
                     }
                     Spacer(minLength: 0)
+                    Group {
+                        if let meeting = event.meetingLink {
+                            Image(systemName: meeting.symbolName)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(
+                                    isHovered ? Color.effectiveAccent : .white.opacity(0.55)
+                                )
+                                .accessibilityLabel(meeting.displayLabel)
+                        } else {
+                            Color.clear
+                        }
+                    }
+                    .frame(width: 18, height: 18)
                     VStack(alignment: .trailing, spacing: 4) {
                         if event.isAllDay {
                             Text("All-day")
