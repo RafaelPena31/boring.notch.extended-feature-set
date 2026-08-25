@@ -90,9 +90,8 @@ struct NotificationExpandedView: View {
 
     private var userFacingActions: [String] {
         notification.actions.filter { action in
-            !["close", "reply", "details", "send", "press"].contains {
-                action.localizedCaseInsensitiveContains($0)
-            }
+            SystemNotificationActionClassifier.kind(of: action) == nil
+                && action != "AXPress"
         }
     }
 
@@ -252,16 +251,14 @@ struct NotificationExpandedView: View {
     private var callActions: some View {
         HStack(spacing: 12) {
             if let decline = notification.actions.first(where: {
-                $0.localizedCaseInsensitiveContains("decline")
+                SystemNotificationActionClassifier.kind(of: $0) == .decline
             }) {
                 circleAction(symbol: "phone.down.fill", color: .red) {
                     Task { _ = await manager.perform(decline, on: notification) }
                 }
             }
             if let accept = notification.actions.first(where: { action in
-                ["accept", "answer", "join"].contains {
-                    action.localizedCaseInsensitiveContains($0)
-                }
+                SystemNotificationActionClassifier.kind(of: action) == .accept
             }) {
                 circleAction(symbol: "phone.fill", color: .green) {
                     Task { _ = await manager.perform(accept, on: notification) }

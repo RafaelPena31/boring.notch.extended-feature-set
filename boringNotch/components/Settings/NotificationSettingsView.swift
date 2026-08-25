@@ -43,6 +43,15 @@ struct NotificationSettingsView: View {
                             }
                         }
                     }
+
+                    if !manager.isWatching {
+                        HStack {
+                            Spacer()
+                            Button("Try Again") {
+                                Task { _ = await manager.start(promptIfNeeded: false) }
+                            }
+                        }
+                    }
                 }
             } header: {
                 Text("Notification Live Activity")
