@@ -95,6 +95,50 @@ struct NotificationCategoryPreference: Codable, Equatable, Defaults.Serializable
     ]
 }
 
+enum SystemNotificationActionKind: Hashable {
+    case reply
+    case details
+    case send
+    case close
+    case accept
+    case decline
+}
+
+enum SystemNotificationActionClassifier {
+    private static let labels: [SystemNotificationActionKind: Set<String>] = [
+        .reply: ["__boring_reply", "reply", "responder", "repondre", "antworten", "rispondi"],
+        .details: [
+            "__boring_details", "details", "show details", "detalhes", "mostrar detalhes",
+            "detalles", "mostrar detalles", "afficher les details", "details anzeigen",
+            "dettagli", "mostra dettagli",
+        ],
+        .send: ["__boring_send", "send", "enviar", "envoyer", "senden", "invia"],
+        .close: [
+            "__boring_close", "close", "dismiss", "fechar", "dispensar", "cerrar",
+            "fermer", "schliessen", "schließen", "chiudi",
+        ],
+        .accept: [
+            "accept", "answer", "join", "aceitar", "atender", "entrar",
+            "aceptar", "contestar", "rejoindre", "accepter", "annehmen", "accetta",
+        ],
+        .decline: [
+            "decline", "reject", "recusar", "rejeitar", "rechazar", "refuser",
+            "ablehnen", "rifiuta",
+        ],
+    ]
+
+    static func kind(of action: String) -> SystemNotificationActionKind? {
+        let normalized = action.folding(
+            options: [.caseInsensitive, .diacriticInsensitive],
+            locale: Locale.current
+        )
+        .lowercased()
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return labels.first { $0.value.contains(normalized) }?.key
+    }
+}
+
 struct SystemNotification: Identifiable, Equatable {
     let id: String
     let appName: String?
@@ -117,9 +161,8 @@ struct SystemNotification: Identifiable, Equatable {
 
     var canReply: Bool {
         actions.contains { action in
-            ["reply", "send", "details"].contains {
-                action.localizedCaseInsensitiveContains($0)
-            }
+            guard let kind = SystemNotificationActionClassifier.kind(of: action) else { return false }
+            return kind == .reply || kind == .details
         }
     }
 

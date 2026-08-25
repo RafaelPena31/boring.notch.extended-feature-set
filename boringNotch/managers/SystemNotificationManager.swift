@@ -33,6 +33,7 @@ final class SystemNotificationManager: ObservableObject {
     private let queueLimit = 8
     private var expiryTask: Task<Void, Never>?
     private var reconnectTask: Task<Void, Never>?
+    private var authorizationMonitorTask: Task<Void, Never>?
     private var observers: [NSObjectProtocol] = []
     private var replyDrafts: [String: String] = [:]
 
@@ -62,12 +63,22 @@ final class SystemNotificationManager: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in self?.handleHelperDisconnect() }
         })
+
+        observers.append(NotificationCenter.default.addObserver(
+            forName: .accessibilityAuthorizationChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let granted = notification.userInfo?["granted"] as? Bool else { return }
+            Task { @MainActor in self?.handleAccessibilityChange(granted) }
+        })
     }
 
     deinit {
         observers.forEach(NotificationCenter.default.removeObserver)
         expiryTask?.cancel()
         reconnectTask?.cancel()
+        authorizationMonitorTask?.cancel()
     }
 
     // MARK: - Lifecycle
@@ -80,6 +91,8 @@ final class SystemNotificationManager: ObservableObject {
             setupMessage = nil
             return false
         }
+
+        startAuthorizationMonitoring()
 
         reconnectTask?.cancel()
         accessibilityAuthorized = await XPCHelperClient.shared
@@ -114,11 +127,47 @@ final class SystemNotificationManager: ObservableObject {
     func stop() {
         reconnectTask?.cancel()
         reconnectTask = nil
+        authorizationMonitorTask?.cancel()
+        authorizationMonitorTask = nil
         expiryTask?.cancel()
         expiryTask = nil
         XPCHelperClient.shared.stopNotificationWatching()
         isWatching = false
         releaseAllAndClear()
+    }
+
+    private func startAuthorizationMonitoring() {
+        guard authorizationMonitorTask == nil else { return }
+        authorizationMonitorTask = Task { @MainActor in
+            while !Task.isCancelled, Defaults[.notificationsEnabled] {
+                _ = await XPCHelperClient.shared.isAccessibilityAuthorized()
+                do {
+                    try await Task.sleep(for: .seconds(1.5))
+                } catch {
+                    break
+                }
+            }
+        }
+    }
+
+    private func handleAccessibilityChange(_ granted: Bool) {
+        accessibilityAuthorized = granted
+        guard Defaults[.notificationsEnabled] else { return }
+
+        if granted {
+            guard !isWatching else { return }
+            Task { @MainActor [weak self] in
+                _ = await self?.start(promptIfNeeded: false)
+            }
+        } else {
+            if isWatching {
+                XPCHelperClient.shared.stopNotificationWatching()
+                isWatching = false
+                releaseAllAndClear()
+                NotificationCenter.default.post(name: .notificationPresentationEnded, object: nil)
+            }
+            setupMessage = "Accessibility access is required to read notification banners."
+        }
     }
 
     private func handleHelperDisconnect() {

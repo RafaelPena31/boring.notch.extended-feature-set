@@ -31,11 +31,13 @@ enum NotificationPolicyManager {
     ) -> SystemNotificationCategory {
         let text = [title, subtitle, body].compactMap { $0 }.joined(separator: " ")
         let normalized = text.lowercased()
-        let normalizedActions = actions.joined(separator: " ").lowercased()
 
         if OTPDetector.detect(in: text) != nil { return .otp }
-        if ["accept", "decline", "answer", "incoming call", "incoming video"].contains(
-            where: { normalizedActions.contains($0) || normalized.contains($0) }
+        if actions.contains(where: {
+            let kind = SystemNotificationActionClassifier.kind(of: $0)
+            return kind == .accept || kind == .decline
+        }) || ["incoming call", "incoming video", "chamada recebida", "videochamada recebida"].contains(
+            where: normalized.contains
         ) || bundleID == "com.apple.FaceTime" {
             return .call
         }
