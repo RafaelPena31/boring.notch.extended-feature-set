@@ -17,6 +17,7 @@ struct NotificationSettingsView: View {
     @ObservedObject private var contacts = ContactAvatarManager.shared
 
     @State private var showingSetup = false
+    @State private var smartReplyAvailability = SmartReplyManager.availability
 
     var body: some View {
         Form {
@@ -111,7 +112,7 @@ struct NotificationSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                if focus.authorizationStatus != .authorized {
+                if focus.authorizationStatus == .notDetermined {
                     Button("Allow Focus status") {
                         Task { await focus.requestAuthorization() }
                     }
@@ -158,7 +159,20 @@ struct NotificationSettingsView: View {
                 }
 
                 Toggle("Suggest replies with Apple Intelligence", isOn: $intelligenceEnabled)
-                    .disabled(!smartRepliesAvailable)
+
+                LabeledContent("Apple Intelligence") {
+                    Label(
+                        smartReplyStatus.label,
+                        systemImage: smartReplyStatus.systemImage
+                    )
+                    .foregroundStyle(smartReplyStatus.color)
+                }
+
+                if !smartRepliesAvailable {
+                    Button("Open Apple Intelligence Settings") {
+                        openAppleIntelligenceSettings()
+                    }
+                }
             } header: {
                 Text("Optional enhancements")
             } footer: {
@@ -181,6 +195,12 @@ struct NotificationSettingsView: View {
             focus.startMonitoring()
             await manager.refreshAccessibilityStatus()
             contacts.refreshAuthorizationStatus()
+            refreshSmartReplyAvailability()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+        ) { _ in
+            refreshSmartReplyAvailability()
         }
     }
 
@@ -310,17 +330,42 @@ struct NotificationSettingsView: View {
     }
 
     private var smartRepliesAvailable: Bool {
-        if case .available = SmartReplyManager.availability { return true }
+        if case .available = smartReplyAvailability { return true }
         return false
     }
 
     private var smartReplyDescription: String {
-        switch SmartReplyManager.availability {
+        switch smartReplyAvailability {
         case .available:
             return "Suggestions are drafted entirely on-device and are never sent automatically."
-        case .unavailable(let reason):
+        case .setupRequired(let reason), .unavailable(let reason):
+            if intelligenceEnabled {
+                return "Reply suggestions will start automatically when the model becomes available. \(reason)"
+            }
             return reason
         }
+    }
+
+    private var smartReplyStatus: (label: String, systemImage: String, color: Color) {
+        switch smartReplyAvailability {
+        case .available:
+            return ("Ready", "checkmark.circle.fill", .green)
+        case .setupRequired:
+            return ("Waiting for setup", "clock.badge.exclamationmark", .orange)
+        case .unavailable:
+            return ("Unavailable", "xmark.circle", .red)
+        }
+    }
+
+    private func refreshSmartReplyAvailability() {
+        smartReplyAvailability = SmartReplyManager.availability
+    }
+
+    private func openAppleIntelligenceSettings() {
+        guard let url = URL(
+            string: "x-apple.systempreferences:com.apple.Siri-Settings.extension"
+        ) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     private func openSystemSettings(_ pane: String) {

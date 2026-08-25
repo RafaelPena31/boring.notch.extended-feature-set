@@ -7,6 +7,7 @@ import FoundationModels
 
 enum SmartReplyAvailability: Equatable {
     case available
+    case setupRequired(reason: String)
     case unavailable(reason: String)
 }
 
@@ -20,7 +21,14 @@ enum SmartReplyManager {
         case .available:
             return .available
         case .unavailable(let reason):
-            return .unavailable(reason: describeUnavailable(reason))
+            switch reason {
+            case .deviceNotEligible:
+                return .unavailable(reason: describeUnavailable(reason))
+            case .appleIntelligenceNotEnabled, .modelNotReady:
+                return .setupRequired(reason: describeUnavailable(reason))
+            @unknown default:
+                return .setupRequired(reason: describeUnavailable(reason))
+            }
         }
         #else
         return .unavailable(reason: "Requires macOS 26 or later.")
@@ -38,9 +46,9 @@ enum SmartReplyManager {
         case .appleIntelligenceNotEnabled:
             return "Turn on Apple Intelligence in System Settings."
         case .modelNotReady:
-            return "The on-device model is still downloading."
+            return "The on-device model isn't ready. Make sure the Mac and Siri use the same supported language, or wait for the model download to finish."
         @unknown default:
-            return "Apple Intelligence isn't available right now."
+            return "Apple Intelligence isn't available. Make sure it is enabled and the Mac and Siri use the same supported language."
         }
     }
     #endif
