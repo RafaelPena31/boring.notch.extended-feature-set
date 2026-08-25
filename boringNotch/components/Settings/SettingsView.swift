@@ -711,6 +711,9 @@ struct Media: View {
     @Default(.sneakPeekStyles) var sneakPeekStyles
 
     @Default(.enableLyrics) var enableLyrics
+    @Default(.showMediaProgressBar) private var showMediaProgressBar
+    @Default(.mediaProgressBarThickness) private var mediaProgressBarThickness
+    @Default(.mediaProgressBarColor) private var mediaProgressBarColor
 
     var body: some View {
         Form {
@@ -755,6 +758,23 @@ struct Media: View {
                     "Show music live activity",
                     isOn: $coordinator.musicLiveActivityEnabled.animation()
                 )
+                Defaults.Toggle(key: .showMediaProgressBar) {
+                    Text("Show progress around the notch")
+                }
+                if showMediaProgressBar {
+                    HStack {
+                        Text("Progress thickness")
+                        Spacer()
+                        Text("\(mediaProgressBarThickness, specifier: "%.1f") pt")
+                            .foregroundStyle(.secondary)
+                    }
+                    Slider(value: $mediaProgressBarThickness, in: 1...5, step: 0.5)
+                    Picker("Progress color", selection: $mediaProgressBarColor) {
+                        ForEach(SliderColorEnum.allCases, id: \.self) { color in
+                            Text(color.rawValue).tag(color)
+                        }
+                    }
+                }
                 Toggle("Show sneak peek on playback changes", isOn: $enableSneakPeek)
                 Picker("Sneak Peek Style", selection: $sneakPeekStyles) {
                     ForEach(SneakPeekStyle.allCases) { style in

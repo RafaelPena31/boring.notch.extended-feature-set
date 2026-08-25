@@ -43,6 +43,7 @@ struct ContentView: View {
     @Default(.calendarLiveActivityEnabled) var calendarLiveActivityEnabled
     @Default(.pomodoroShowLiveActivity) var pomodoroShowLiveActivity
     @Default(.caffeineEnabled) var caffeineEnabled
+    @Default(.showMediaProgressBar) var showMediaProgressBar
 
     // Shared interactive spring for movement/resizing to avoid conflicting animations
     private let animationSpring = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
@@ -54,6 +55,12 @@ struct ContentView: View {
        ((vm.notchState == .open) && Defaults[.cornerRadiusScaling])
                 ? cornerRadiusInsets.opened.top
                 : cornerRadiusInsets.closed.top
+    }
+
+    private var bottomCornerRadius: CGFloat {
+        ((vm.notchState == .open) && Defaults[.cornerRadiusScaling])
+            ? cornerRadiusInsets.opened.bottom
+            : cornerRadiusInsets.closed.bottom
     }
 
     private var currentNotchShape: NotchShape {
@@ -103,6 +110,20 @@ struct ContentView: View {
 
     private var productivityActivityActive: Bool {
         pomodoroActivityActive || calendarActivityActive || caffeineActivityActive
+    }
+
+    private var mediaProgressVisible: Bool {
+        showMediaProgressBar
+            && vm.notchState == .closed
+            && !isHovering
+            && gestureProgress == 0
+            && !vm.hideOnClosed
+            && musicManager.isPlaying
+            && musicManager.songDuration.isFinite
+            && musicManager.songDuration > 0
+            && !coordinator.sneakPeek.show
+            && !coordinator.expandingView.show
+            && !closedSystemHUDActive
     }
 
     private var compactActivitySize: CGFloat {
@@ -180,6 +201,23 @@ struct ContentView: View {
                             .fill(.black)
                             .frame(height: 1)
                             .padding(.horizontal, topCornerRadius)
+                    }
+                    .overlay {
+                        if showMediaProgressBar {
+                            MediaProgressBar(
+                                topCornerRadius: topCornerRadius,
+                                bottomCornerRadius: bottomCornerRadius,
+                                isVisible: mediaProgressVisible
+                            )
+                            .allowsHitTesting(false)
+                            .opacity(mediaProgressVisible ? 1 : 0)
+                            .animation(
+                                mediaProgressVisible
+                                    ? .easeOut(duration: 0.2).delay(0.35)
+                                    : .easeIn(duration: 0.12),
+                                value: mediaProgressVisible
+                            )
+                        }
                     }
                     .shadow(
                         color: ((vm.notchState == .open || isHovering) && Defaults[.enableShadow])
