@@ -28,6 +28,7 @@ public enum NotchViews {
     case home
     case shelf
     case clipboard
+    case pomodoro
 }
 
 enum SettingsEnum {
@@ -55,6 +56,18 @@ enum DownloadIconStyle: String, Defaults.Serializable {
 enum MirrorShapeEnum: String, Defaults.Serializable {
     case rectangle = "Rectangular"
     case circle = "Circular"
+}
+
+enum PomodoroPhase: String, CaseIterable, Codable, Defaults.Serializable {
+    case focus
+    case shortBreak
+    case longBreak
+}
+
+enum PomodoroSound: String, CaseIterable, Codable, Defaults.Serializable {
+    case chime
+    case bell
+    case silent
 }
 
 enum WindowHeightMode: String, Defaults.Serializable {

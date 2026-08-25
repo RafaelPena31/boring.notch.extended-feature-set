@@ -18,6 +18,7 @@ enum SneakContentType {
     case mic
     case battery
     case download
+    case pomodoro
 }
 
 struct sneakPeek {
@@ -224,7 +225,7 @@ class BoringViewCoordinator: ObservableObject {
         icon: String = ""
     ) {
         sneakPeekDuration = duration
-        if type != .music {
+        if type != .music && type != .pomodoro {
             // close()
             if !Defaults[.hudReplacement] {
                 return
@@ -320,6 +321,8 @@ class BoringViewCoordinator: ObservableObject {
             if !Defaults[.boringShelf] { currentView = .home }
         case .clipboard:
             if !Defaults[.clipboardHistoryEnabled] { currentView = .home }
+        case .pomodoro:
+            break
         }
     }
 }

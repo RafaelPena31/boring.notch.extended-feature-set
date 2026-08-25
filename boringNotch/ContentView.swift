@@ -24,6 +24,7 @@ struct ContentView: View {
     @ObservedObject var brightnessManager = BrightnessManager.shared
     @ObservedObject var volumeManager = VolumeManager.shared
     @ObservedObject var calendarActivity = CalendarLiveActivityViewModel.shared
+    @ObservedObject var pomodoroManager = PomodoroManager.shared
     @State private var hoverTask: Task<Void, Never>?
     @State private var isHovering: Bool = false
     @State private var anyDropDebounceTask: Task<Void, Never>?
@@ -39,6 +40,7 @@ struct ContentView: View {
     @Default(.showNotHumanFace) var showNotHumanFace
     @Default(.showCalendar) var showCalendar
     @Default(.calendarLiveActivityEnabled) var calendarLiveActivityEnabled
+    @Default(.pomodoroShowLiveActivity) var pomodoroShowLiveActivity
 
     // Shared interactive spring for movement/resizing to avoid conflicting animations
     private let animationSpring = Animation.interactiveSpring(response: 0.38, dampingFraction: 0.8, blendDuration: 0)
@@ -67,12 +69,37 @@ struct ContentView: View {
             && calendarActivity.activeEvent != nil
             && vm.notchState == .closed
             && !vm.hideOnClosed
+            && !closedSystemHUDActive
     }
 
     private var musicSlotIdle: Bool {
         !coordinator.expandingView.show
             && !(musicManager.isPlaying || !musicManager.isPlayerIdle)
     }
+
+    private var pomodoroActivityActive: Bool {
+        pomodoroShowLiveActivity
+            && pomodoroManager.isRunning
+            && vm.notchState == .closed
+            && !vm.hideOnClosed
+            && !closedSystemHUDActive
+    }
+
+    private var closedSystemHUDActive: Bool {
+        coordinator.sneakPeek.show
+            && coordinator.sneakPeek.type != .music
+            && coordinator.sneakPeek.type != .pomodoro
+    }
+
+    private var productivityActivityActive: Bool {
+        pomodoroActivityActive || calendarActivityActive
+    }
+
+    private var compactActivitySize: CGFloat {
+        max(0, vm.effectiveClosedNotchHeight - 16)
+    }
+
+    private let pomodoroCompactWidth: CGFloat = 48
 
     private var computedChinWidth: CGFloat {
         var chinWidth: CGFloat = vm.closedNotchSize.width
@@ -86,11 +113,20 @@ struct ContentView: View {
             && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
         {
             chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
-            if calendarActivityActive {
-                chinWidth += max(0, vm.effectiveClosedNotchHeight - 16) + 8
+            if pomodoroActivityActive {
+                chinWidth += pomodoroCompactWidth + 8
             }
-        } else if calendarActivityActive && musicSlotIdle {
-            chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
+            if calendarActivityActive {
+                chinWidth += compactActivitySize + 8
+            }
+        } else if productivityActivityActive && musicSlotIdle {
+            chinWidth += compactActivitySize + 12
+            if pomodoroActivityActive {
+                chinWidth += pomodoroCompactWidth + 8
+            }
+            if calendarActivityActive {
+                chinWidth += compactActivitySize + 8
+            }
         } else if !coordinator.expandingView.show && vm.notchState == .closed
             && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace]
             && !vm.hideOnClosed
@@ -307,14 +343,14 @@ struct ContentView: View {
                             .frame(width: 76, alignment: .trailing)
                         }
                         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
-                      } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && vm.notchState == .closed {
+                      } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .pomodoro) && vm.notchState == .closed {
                           InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(.opacity)
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                           MusicLiveActivity()
                               .frame(alignment: .center)
-                      } else if calendarActivityActive && musicSlotIdle {
-                          CalendarOnlyLiveActivity()
+                      } else if productivityActivityActive && musicSlotIdle {
+                          ProductivityLiveActivity()
                               .frame(alignment: .center)
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
                           BoringFaceAnimation()
@@ -327,7 +363,7 @@ struct ContentView: View {
                        }
 
                       if coordinator.sneakPeek.show {
-                          if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && !Defaults[.inlineHUD] && vm.notchState == .closed {
+                          if (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .pomodoro) && !Defaults[.inlineHUD] && vm.notchState == .closed {
                               SystemEventIndicatorModifier(
                                   eventType: $coordinator.sneakPeek.type,
                                   value: $coordinator.sneakPeek.value,
@@ -360,6 +396,17 @@ struct ContentView: View {
                                   .padding(.bottom, 10)
                               }
                           }
+                          else if coordinator.sneakPeek.type == .pomodoro {
+                              if vm.notchState == .closed && !vm.hideOnClosed {
+                                  HStack(spacing: 5) {
+                                      Image(systemName: pomodoroManager.phaseIcon)
+                                      Text("\(pomodoroManager.phaseLabel) — \(pomodoroManager.formattedTime)")
+                                          .font(.caption)
+                                  }
+                                  .foregroundStyle(.gray)
+                                  .padding(.bottom, 10)
+                              }
+                          }
                       }
                   }
               }
@@ -377,6 +424,8 @@ struct ContentView: View {
                         ShelfView()
                     case .clipboard:
                         ClipboardView()
+                    case .pomodoro:
+                        PomodoroView()
                     }
                 }
                 .transition(
@@ -508,11 +557,16 @@ struct ContentView: View {
                 alignment: .center
             )
 
+            if pomodoroActivityActive {
+                PomodoroCompactLiveActivity()
+            }
+
             if calendarActivityActive {
                 CalendarLiveActivityRing(
                     progress: calendarActivity.progress,
-                    size: max(0, vm.effectiveClosedNotchHeight - 16)
+                    size: compactActivitySize
                 )
+                .help(calendarActivity.label)
             }
         }
         .frame(
@@ -522,27 +576,62 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    func CalendarOnlyLiveActivity() -> some View {
+    func ProductivityLiveActivity() -> some View {
         HStack {
-            Image(systemName: "calendar")
+            Image(systemName: pomodoroActivityActive ? pomodoroManager.phaseIcon : "calendar")
                 .resizable()
                 .scaledToFit()
-                .foregroundStyle(.gray)
+                .foregroundStyle(pomodoroActivityActive ? pomodoroPhaseColor : .gray)
                 .frame(
-                    width: max(0, vm.effectiveClosedNotchHeight - 16),
-                    height: max(0, vm.effectiveClosedNotchHeight - 16)
+                    width: compactActivitySize,
+                    height: compactActivitySize
                 )
 
             Rectangle()
                 .fill(.black)
                 .frame(width: vm.closedNotchSize.width + -cornerRadiusInsets.closed.top)
 
-            CalendarLiveActivityRing(
-                progress: calendarActivity.progress,
-                size: max(0, vm.effectiveClosedNotchHeight - 16)
-            )
+            if pomodoroActivityActive {
+                PomodoroCompactLiveActivity()
+            }
+
+            if calendarActivityActive {
+                CalendarLiveActivityRing(
+                    progress: calendarActivity.progress,
+                    size: compactActivitySize
+                )
+                .help(calendarActivity.label)
+            }
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+    }
+
+    @ViewBuilder
+    func PomodoroCompactLiveActivity() -> some View {
+        VStack(spacing: 0) {
+            Image(systemName: pomodoroManager.phaseIcon)
+                .font(.system(size: 8, weight: .medium))
+                .foregroundStyle(pomodoroPhaseColor)
+            Text(pomodoroManager.formattedTime)
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .foregroundStyle(.white)
+        }
+        .frame(width: pomodoroCompactWidth)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            coordinator.currentView = .pomodoro
+            vm.open()
+        }
+        .help("Open Pomodoro")
+        .accessibilityLabel("Pomodoro, \(pomodoroManager.formattedTime) remaining")
+    }
+
+    private var pomodoroPhaseColor: Color {
+        switch pomodoroManager.phase {
+        case .focus: .orange
+        case .shortBreak: .green
+        case .longBreak: .blue
+        }
     }
 
     @ViewBuilder
