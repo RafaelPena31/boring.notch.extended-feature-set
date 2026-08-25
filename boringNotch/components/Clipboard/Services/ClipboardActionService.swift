@@ -22,6 +22,31 @@ enum ClipboardActionService {
     static func copy(_ item: ClipboardItem) {
         releaseCopiedURLs()
 
+        if case .image(let ref) = item.kind {
+            let blobURL = ClipboardBlobStore.shared.url(forFileName: ref.fileName)
+            guard let data = try? Data(contentsOf: blobURL) else {
+                print("❌ Clipboard image blob missing: \(ref.fileName)")
+                return
+            }
+            ClipboardMonitor.shared.performOwnWrite { pb in
+                let type: NSPasteboard.PasteboardType =
+                    ref.utiIdentifier == UTType.tiff.identifier ? .tiff : .png
+                pb.setData(data, forType: type)
+            }
+            return
+        }
+
+        if case .files(let refs) = item.kind {
+            let urls = resolveURLs(for: refs)
+            guard !urls.isEmpty else { return }
+            copiedURLs = urls.filter { $0.startAccessingSecurityScopedResource() }
+            ClipboardMonitor.shared.performOwnWrite { pb in
+                pb.writeObjects(urls as [NSURL])
+                pb.setString(urls.map(\.path).joined(separator: "\n"), forType: .string)
+            }
+            return
+        }
+
         ClipboardMonitor.shared.performOwnWrite { pb in
             switch item.kind {
             case .text(let string):
@@ -31,24 +56,8 @@ enum ClipboardActionService {
                 pb.setString(url.absoluteString, forType: .string)
                 pb.setString(url.absoluteString, forType: .URL)
 
-            case .image(let ref):
-                let blobURL = ClipboardBlobStore.shared.url(forFileName: ref.fileName)
-                guard let data = try? Data(contentsOf: blobURL) else {
-                    print("❌ Clipboard image blob missing: \(ref.fileName)")
-                    return
-                }
-                // Write back the original representation, not a transcode.
-                let type: NSPasteboard.PasteboardType =
-                    ref.utiIdentifier == UTType.tiff.identifier ? .tiff : .png
-                pb.setData(data, forType: type)
-
-            case .files(let refs):
-                let urls = resolveURLs(for: refs)
-                guard !urls.isEmpty else { return }
-                // Hold the scope open past this call; the paste happens later.
-                copiedURLs = urls.filter { $0.startAccessingSecurityScopedResource() }
-                pb.writeObjects(urls as [NSURL])
-                pb.setString(urls.map(\.path).joined(separator: "\n"), forType: .string)
+            case .image, .files:
+                break
             }
         }
     }
