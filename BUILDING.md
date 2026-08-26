@@ -1,14 +1,13 @@
 # Building locally
 
-1. In Xcode, add your Apple account in **Settings > Accounts**.
-2. If boringNotch is already installed, print its Team ID with this read-only command:
+1. In Xcode, add your Apple account and select the intended Team in **Settings > Accounts**.
+2. Print the last selected Team ID from Xcode's preferences:
 
    ```sh
-   codesign -dvv /Applications/boringNotch.app 2>&1 \
-     | sed -n 's/^TeamIdentifier=//p'
+   defaults read com.apple.dt.Xcode IDEProvisioningTeamManagerLastSelectedTeamID
    ```
 
-   This only reads the existing signature; it does not sign or modify the app.
+   This is read-only and does not build, install, or sign an app.
 
 3. Create `.local-signing.env` in the repository root containing:
 
