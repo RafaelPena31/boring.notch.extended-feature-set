@@ -196,12 +196,17 @@ final class SystemNotificationManager: ObservableObject {
             return value
         }
 
+        let bundleID = value("bundleID")
+        let appName = value("appName")
         let actions = (value("actions") ?? "")
             .components(separatedBy: "\n")
             .filter { !$0.isEmpty }
+
+        recordSource(bundleID: bundleID, appName: appName)
+
         let category = NotificationPolicyManager.category(
-            bundleID: value("bundleID"),
-            appName: value("appName"),
+            bundleID: bundleID,
+            appName: appName,
             title: value("title"),
             subtitle: value("subtitle"),
             body: value("body"),
@@ -209,8 +214,8 @@ final class SystemNotificationManager: ObservableObject {
         )
         var notification = SystemNotification(
             id: token,
-            appName: value("appName"),
-            bundleID: value("bundleID"),
+            appName: appName,
+            bundleID: bundleID,
             title: value("title"),
             subtitle: value("subtitle"),
             body: value("body"),
@@ -238,6 +243,22 @@ final class SystemNotificationManager: ObservableObject {
 
         enqueue(current)
         show(notification, shouldAutoOpen: decision.shouldOpenAutomatically)
+    }
+
+    private func recordSource(bundleID: String?, appName: String?) {
+        guard let source = NotificationSourceApp.make(
+            bundleID: bundleID,
+            appName: appName
+        ) else { return }
+
+        var sources = Defaults[.notificationObservedSources]
+        if let index = sources.firstIndex(where: { $0.id == source.id }) {
+            guard sources[index] != source else { return }
+            sources[index] = source
+        } else {
+            sources.append(source)
+        }
+        Defaults[.notificationObservedSources] = sources
     }
 
     private func isDuplicate(_ notification: SystemNotification) -> Bool {
