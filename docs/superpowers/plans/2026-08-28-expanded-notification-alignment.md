@@ -4,7 +4,7 @@
 
 **Goal:** Center the visible expanded-notification content and balance its lateral clearances without changing panel sizing or notification behavior.
 
-**Architecture:** Keep `NotificationExpandedView` as the single owner of expanded notification layout. In automatic compact presentation, size the avatar/content `HStack` from its intrinsic width before centering it in the available panel; keep the dismiss control in an independent overlay whose inset matches the content inset.
+**Architecture:** Keep `NotificationExpandedView` as the single owner of expanded notification layout. In automatic compact presentation, use `ViewThatFits` to center intrinsic short content and fall back to a real 260-point text-column proposal for long wrapping content; keep the dismiss control in an independent overlay whose inset matches the content inset.
 
 **Tech Stack:** Swift, SwiftUI, macOS, Xcode
 
@@ -15,41 +15,40 @@
 **Files:**
 - Modify: `boringNotch/components/Notch/NotificationLiveActivity.swift:180-245`
 
-- [ ] **Step 1: Add the compact text-column limit**
+- [ ] **Step 1: Add adaptive content sizing**
 
-Add a focused layout value next to `contentInsets`:
+Add three explicit sizing modes and the compact fallback width:
 
 ```swift
-private var contentColumnMaxWidth: CGFloat {
-    compactPresentation ? 260 : 430
+private enum ContentSizing {
+    case intrinsic
+    case constrained
+    case flexible
 }
+
+private let compactContentColumnWidth: CGFloat = 260
 ```
 
-- [ ] **Step 2: Make short automatic content intrinsic before centering**
+- [ ] **Step 2: Center short content and preserve long-message wrapping**
 
-Use the new maximum for the text/action column, then apply intrinsic horizontal sizing to the complete `HStack` only during automatic compact presentation:
+Use `ViewThatFits` to try the intrinsic group first and use a constrained fallback when that group cannot fit horizontally:
 
 ```swift
-HStack(alignment: .top, spacing: 14) {
-    avatar
-
-    VStack(alignment: .leading, spacing: 8) {
-        header
-        message
-        actionArea
-        if let status = notification.statusMessage {
-            Text(status)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.orange)
-                .transition(.opacity)
+Group {
+    if compactPresentation {
+        ViewThatFits(in: .horizontal) {
+            contentGroup(sizing: .intrinsic)
+            contentGroup(sizing: .constrained)
         }
+    } else {
+        contentGroup(sizing: .flexible)
     }
-    .frame(maxWidth: contentColumnMaxWidth, alignment: .leading)
 }
-.fixedSize(horizontal: compactPresentation, vertical: false)
 .padding(contentInsets)
 .frame(maxWidth: .infinity, alignment: .center)
 ```
+
+Inside `contentGroup`, use intrinsic sizing without a maximum for the first candidate, an exact 260-point width for the compact fallback, and the existing flexible 430-point maximum for manual presentation. This lets `ViewThatFits` reject long single-line ideals and preserves their existing three-line wrapping in the fallback.
 
 - [ ] **Step 3: Balance the dismiss-control inset**
 

@@ -180,6 +180,12 @@ struct NotificationCompactLiveActivity: View {
 /// Open-state presentation. It replaces the normal notch interior while the
 /// notification is active; no card or window is placed below the notch box.
 struct NotificationExpandedView: View {
+    private enum ContentSizing {
+        case intrinsic
+        case constrained
+        case flexible
+    }
+
     @ObservedObject private var manager = SystemNotificationManager.shared
 
     let notification: SystemNotification
@@ -214,27 +220,25 @@ struct NotificationExpandedView: View {
         )
     }
 
-    var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            avatar
+    private let compactContentColumnWidth: CGFloat = 260
 
-            VStack(alignment: .leading, spacing: 8) {
-                header
-                message
-                actionArea
-                if let status = notification.statusMessage {
-                    Text(status)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.orange)
-                        .transition(.opacity)
+    var body: some View {
+        Group {
+            if compactPresentation {
+                ViewThatFits(in: .horizontal) {
+                    contentGroup(sizing: .intrinsic)
+                    contentGroup(sizing: .constrained)
                 }
+            } else {
+                contentGroup(sizing: .flexible)
             }
-            .frame(maxWidth: 430, alignment: .leading)
         }
         .padding(contentInsets)
         .frame(maxWidth: .infinity, alignment: .center)
         .overlay(alignment: .topTrailing) {
-            dismissButton.padding(.top, 10).padding(.trailing, 14)
+            dismissButton
+                .padding(.top, contentInsets.top)
+                .padding(.trailing, contentInsets.trailing)
         }
         .id(notification.id)
         .background(NotificationWindowAccessor { window in
@@ -263,6 +267,39 @@ struct NotificationExpandedView: View {
         .onChange(of: replyText) { _, text in
             manager.setDraft(text, for: notification.id)
             if replyFocused { manager.holdActive() }
+        }
+    }
+
+    @ViewBuilder
+    private func contentGroup(sizing: ContentSizing) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            avatar
+
+            switch sizing {
+            case .intrinsic:
+                notificationDetails
+                    .fixedSize(horizontal: true, vertical: false)
+            case .constrained:
+                notificationDetails
+                    .frame(width: compactContentColumnWidth, alignment: .leading)
+            case .flexible:
+                notificationDetails
+                    .frame(maxWidth: 430, alignment: .leading)
+            }
+        }
+    }
+
+    private var notificationDetails: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header
+            message
+            actionArea
+            if let status = notification.statusMessage {
+                Text(status)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.orange)
+                    .transition(.opacity)
+            }
         }
     }
 
