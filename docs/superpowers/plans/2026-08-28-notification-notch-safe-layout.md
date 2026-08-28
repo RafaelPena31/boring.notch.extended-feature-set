@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Impedir que notificações compactas sejam desenhadas atrás do notch físico, mantendo o conteúdo dentro da silhueta e a animação atual.
+**Goal:** Impedir que notificações sejam desenhadas atrás do notch físico e reduzir o painel usado por notificações que abrem o notch automaticamente.
 
-**Architecture:** O componente compacto terá duas áreas laterais com a mesma largura e uma área central derivada da largura real do notch. Um helper local concentrará a geometria para que o conteúdo e a extensão inferior da janela usem exatamente a mesma largura.
+**Architecture:** O componente compacto terá duas áreas laterais com a mesma largura e uma área central derivada da largura real do notch. Um helper local concentrará a geometria para que o conteúdo e a extensão inferior da janela usem exatamente a mesma largura. O estado que registra se o notch já estava aberto distinguirá aberturas manuais de automáticas, aplicando largura e altura reduzidas somente às automáticas.
 
 **Tech Stack:** Swift 6, SwiftUI, AppKit, Xcode, script local `scripts/install-local.sh`.
 
@@ -94,17 +94,66 @@ Substituir o acréscimo variável por tipo de notificação:
 
 Isso mantém a área interativa inferior alinhada com a silhueta compacta para notificações comuns e OTP.
 
-- [ ] **Step 2: Compilar o projeto**
+### Task 3: Reduzir o painel aberto automaticamente
+
+**Files:**
+- Modify: `boringNotch/ContentView.swift:140-155`
+- Modify: `boringNotch/ContentView.swift:470-480`
+
+- [ ] **Step 1: Identificar o painel automático reduzido**
+
+Adicionar ao `ContentView`:
+
+```swift
+private let automaticNotificationContentWidth: CGFloat = 400
+
+private var usesAutomaticNotificationPanel: Bool {
+    vm.notchState == .open && notificationPresentationWasOpen == false
+}
+```
+
+O estado `false` significa que a notificação encontrou o notch fechado e foi responsável por abri-lo. `nil` representa uma abertura manual sem apresentação automática ativa, e `true` representa um notch que já estava aberto.
+
+- [ ] **Step 2: Usar altura intrínseca somente no painel automático**
+
+Atualizar a altura aberta:
+
+```swift
+private var openLayoutHeight: CGFloat? {
+    guard vm.notchState == .open else { return nil }
+    return usesCompactPlayer || usesAutomaticNotificationPanel
+        ? nil
+        : vm.notchSize.height
+}
+```
+
+- [ ] **Step 3: Limitar a largura do conteúdo automático**
+
+Aplicar ao `NotificationExpandedView`:
+
+```swift
+NotificationExpandedView(notification: notification)
+    .frame(
+        width: usesAutomaticNotificationPanel
+            ? automaticNotificationContentWidth
+            : nil
+    )
+```
+
+Os 400 pt de conteúdo, somados aos paddings abertos existentes, produzem uma silhueta visual próxima de 460 pt. Quando o valor for `nil`, o layout manual continuará ocupando os 640 pt atuais.
+
+- [ ] **Step 4: Verificar o diff**
 
 Run:
 
 ```bash
-xcodebuild -quiet -project boringNotch.xcodeproj -scheme boringNotch -destination 'platform=macOS' build
+git diff --check
+git diff -- boringNotch/ContentView.swift
 ```
 
-Expected: exit code 0.
+Expected: a regra reduzida depende apenas do estado de abertura automática e não altera `openNotchSize` ou `BoringViewModel.open()`.
 
-### Task 3: Instalar e validar no hardware
+### Task 4: Instalar e validar no hardware
 
 **Files:**
 - No source changes.
@@ -125,13 +174,19 @@ Usar o mesmo evento sintético de notificação já utilizado na depuração, ma
 
 Expected: ícone e remetente totalmente à esquerda do notch físico; resumo e ação totalmente à direita; nenhum conteúdo sob a câmera.
 
-- [ ] **Step 3: Conferir monitor sem notch e OTP**
+- [ ] **Step 3: Conferir permissões e chamadas abertas automaticamente**
+
+Disparar uma permissão e uma chamada com abertura automática.
+
+Expected: painel visual próximo de 460 pt, altura ajustada ao conteúdo e todos os controles legíveis.
+
+- [ ] **Step 4: Conferir abertura manual, monitor sem notch e OTP**
 
 Mover o app para um monitor sem notch e disparar uma notificação comum e uma com código.
 
-Expected: a composição continua centralizada, a cópia do código permanece clicável e não há regressão na abertura do notch.
+Expected: a composição continua centralizada, a cópia do código permanece clicável e a abertura manual mantém o painel completo de 640 × 190 pt.
 
-- [ ] **Step 4: Commit e push**
+- [ ] **Step 5: Commit e push**
 
 Run:
 
@@ -142,4 +197,3 @@ git push
 ```
 
 Expected: commit criado em `main` e enviado para `origin/main` sem incluir `.superpowers/`.
-
