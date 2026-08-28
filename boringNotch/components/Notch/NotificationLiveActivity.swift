@@ -2,6 +2,35 @@ import AppKit
 import Defaults
 import SwiftUI
 
+enum NotificationCompactLayout {
+    static let spacing: CGFloat = 8
+    static let preferredWingWidth: CGFloat = 205
+
+    static func centerGapWidth(for notchWidth: CGFloat) -> CGFloat {
+        max(0, notchWidth - cornerRadiusInsets.closed.top)
+    }
+
+    static func wingWidth(for notchWidth: CGFloat) -> CGFloat {
+        let availableContentWidth = windowSize.width
+            - (2 * cornerRadiusInsets.closed.bottom)
+            - centerGapWidth(for: notchWidth)
+            - (2 * spacing)
+
+        return min(preferredWingWidth, max(0, availableContentWidth / 2))
+    }
+
+    static func silhouetteWidth(for notchWidth: CGFloat) -> CGFloat {
+        let contentWidth = (2 * wingWidth(for: notchWidth))
+            + centerGapWidth(for: notchWidth)
+            + (2 * spacing)
+
+        return min(
+            windowSize.width,
+            contentWidth + (2 * cornerRadiusInsets.closed.bottom)
+        )
+    }
+}
+
 /// Closed-state presentation. The notch itself grows horizontally and all
 /// notification content remains inside the same black silhouette.
 struct NotificationCompactLiveActivity: View {
@@ -14,45 +43,121 @@ struct NotificationCompactLiveActivity: View {
         max(20, vm.effectiveClosedNotchHeight - 12)
     }
 
+    private var wingWidth: CGFloat {
+        NotificationCompactLayout.wingWidth(for: vm.closedNotchSize.width)
+    }
+
+    private var centerGapWidth: CGFloat {
+        NotificationCompactLayout.centerGapWidth(for: vm.closedNotchSize.width)
+    }
+
+    private var leadingTitle: String {
+        notification.sender
+            ?? notification.appName
+            ?? notification.category.label
+    }
+
+    private var leadingSubtitle: String? {
+        let subtitle = notification.appName ?? notification.category.label
+        return subtitle == leadingTitle ? nil : subtitle
+    }
+
+    private var summary: String {
+        notification.body
+            ?? notification.subtitle
+            ?? notification.category.label
+    }
+
+    private var summaryContext: String? {
+        if let subtitle = notification.subtitle,
+           subtitle != summary,
+           subtitle != notification.sender
+        {
+            return subtitle
+        }
+
+        return notification.category.label == summary
+            ? nil
+            : notification.category.label
+    }
+
     var body: some View {
-        HStack(spacing: 8) {
-            NotificationSourceIcon(notification: notification, size: iconSize)
+        HStack(spacing: NotificationCompactLayout.spacing) {
+            leadingWing
+                .frame(width: wingWidth, alignment: .leading)
 
             Rectangle()
                 .fill(.black)
-                .frame(width: vm.closedNotchSize.width - cornerRadiusInsets.closed.top)
+                .frame(width: centerGapWidth)
 
-            if let code = notification.detectedCode {
-                HStack(spacing: 8) {
-                    Text(code)
-                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                        .kerning(1.2)
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
+            trailingWing
+                .frame(width: wingWidth, alignment: .trailing)
+        }
+        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+        .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
+    }
 
-                    Button {
-                        manager.copyCode(from: notification)
-                    } label: {
-                        Image(systemName: "doc.on.doc.fill")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(width: iconSize, height: iconSize)
-                            .background(Color.effectiveAccent, in: Circle())
-                    }
-                    .buttonStyle(NotificationScaleButtonStyle())
-                }
-            } else {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(notification.title ?? notification.appName ?? notification.category.label)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                    Text(notification.body ?? notification.subtitle ?? notification.category.label)
-                        .font(.system(size: 10))
+    private var leadingWing: some View {
+        HStack(spacing: 8) {
+            NotificationSourceIcon(notification: notification, size: iconSize)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(leadingTitle)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                if let leadingSubtitle {
+                    Text(leadingSubtitle)
+                        .font(.system(size: 9))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                 }
-                .frame(width: 190, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var trailingWing: some View {
+        HStack(spacing: 8) {
+            if let code = notification.detectedCode {
+                Text(code)
+                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                    .kerning(1.2)
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+
+                Button {
+                    manager.copyCode(from: notification)
+                } label: {
+                    Image(systemName: "doc.on.doc.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: iconSize, height: iconSize)
+                        .background(Color.effectiveAccent, in: Circle())
+                }
+                .buttonStyle(NotificationScaleButtonStyle())
+            } else {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(summary)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    if let summaryContext {
+                        Text(summaryContext)
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 Image(systemName: notification.category.symbolName)
                     .font(.system(size: 11, weight: .semibold))
@@ -63,13 +168,12 @@ struct NotificationCompactLiveActivity: View {
                 Text("+\(manager.queued.count)")
                     .font(.system(size: 9, weight: .bold))
                     .foregroundStyle(.white)
+                    .lineLimit(1)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)
                     .background(.white.opacity(0.14), in: Capsule())
             }
         }
-        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
-        .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))
     }
 }
 
@@ -79,6 +183,12 @@ struct NotificationExpandedView: View {
     @ObservedObject private var manager = SystemNotificationManager.shared
 
     let notification: SystemNotification
+    let compactPresentation: Bool
+
+    init(notification: SystemNotification, compactPresentation: Bool = false) {
+        self.notification = notification
+        self.compactPresentation = compactPresentation
+    }
 
     @State private var replyText = ""
     @State private var isSending = false
@@ -93,6 +203,15 @@ struct NotificationExpandedView: View {
             SystemNotificationActionClassifier.kind(of: action) == nil
                 && action != "AXPress"
         }
+    }
+
+    private var contentInsets: EdgeInsets {
+        EdgeInsets(
+            top: compactPresentation ? 10 : 14,
+            leading: compactPresentation ? 12 : 18,
+            bottom: compactPresentation ? 8 : 14,
+            trailing: compactPresentation ? 12 : 18
+        )
     }
 
     var body: some View {
@@ -112,8 +231,7 @@ struct NotificationExpandedView: View {
             }
             .frame(maxWidth: 430, alignment: .leading)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
+        .padding(contentInsets)
         .frame(maxWidth: .infinity, alignment: .center)
         .overlay(alignment: .topTrailing) {
             dismissButton.padding(.top, 10).padding(.trailing, 14)

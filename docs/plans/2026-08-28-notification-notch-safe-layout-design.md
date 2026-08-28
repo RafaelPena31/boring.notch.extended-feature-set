@@ -39,8 +39,9 @@ Em telas sem notch físico, será usada a mesma composição simétrica com o no
 
 Quando uma categoria abrir o notch automaticamente, a notificação usará um painel próprio, menor que o painel completo do app:
 
-- largura visual aproximada de 460 pt;
+- largura visual aproximada de 430 pt;
 - altura determinada pelo conteúdo da notificação;
+- margens internas reduzidas para 12 pt na horizontal e 8 pt na base;
 - mesmos cantos, animação e controles do notch atual;
 - conteúdo centralizado, sem reservar o espaço vazio do painel completo de 640 pt.
 

@@ -4,7 +4,7 @@
 
 **Goal:** Impedir que notificações sejam desenhadas atrás do notch físico e reduzir o painel usado por notificações que abrem o notch automaticamente.
 
-**Architecture:** O componente compacto terá duas áreas laterais com a mesma largura e uma área central derivada da largura real do notch. Um helper local concentrará a geometria para que o conteúdo e a extensão inferior da janela usem exatamente a mesma largura. O estado que registra se o notch já estava aberto distinguirá aberturas manuais de automáticas, aplicando largura e altura reduzidas somente às automáticas.
+**Architecture:** O componente compacto terá duas áreas laterais com a mesma largura e uma área central derivada da largura real do notch. Um helper local concentrará a geometria para que o conteúdo e a extensão inferior da janela usem exatamente a mesma largura. O token da notificação que abriu o notch distinguirá aberturas manuais de automáticas, aplicando largura e altura reduzidas somente à notificação responsável pela abertura.
 
 **Tech Stack:** Swift 6, SwiftUI, AppKit, Xcode, script local `scripts/install-local.sh`.
 
@@ -99,20 +99,32 @@ Isso mantém a área interativa inferior alinhada com a silhueta compacta para n
 **Files:**
 - Modify: `boringNotch/ContentView.swift:140-155`
 - Modify: `boringNotch/ContentView.swift:470-480`
+- Modify: `boringNotch/components/Notch/NotificationLiveActivity.swift:180-230`
 
 - [ ] **Step 1: Identificar o painel automático reduzido**
 
 Adicionar ao `ContentView`:
 
 ```swift
-private let automaticNotificationContentWidth: CGFloat = 400
+private let automaticNotificationContentWidth: CGFloat = 380
+
+@State private var automaticNotificationPanelToken: String?
 
 private var usesAutomaticNotificationPanel: Bool {
-    vm.notchState == .open && notificationPresentationWasOpen == false
+    guard vm.notchState == .open,
+          let token = automaticNotificationPanelToken,
+          let activeNotificationID = notificationManager.activeNotification?.id
+    else { return false }
+
+    return token == activeNotificationID
+}
+
+private var openSecondaryPadding: CGFloat {
+    usesAutomaticNotificationPanel ? 6 : 12
 }
 ```
 
-O estado `false` significa que a notificação encontrou o notch fechado e foi responsável por abri-lo. `nil` representa uma abertura manual sem apresentação automática ativa, e `true` representa um notch que já estava aberto.
+Definir o token somente em `handleAutomaticNotificationOpening()` quando a notificação encontrar o notch fechado. Limpar o token ao fechar o notch, restaurar a apresentação ou receber uma abertura automática quando o notch já estiver aberto. Assim, uma notificação substituta e uma reabertura manual usam o painel completo.
 
 - [ ] **Step 2: Usar altura intrínseca somente no painel automático**
 
@@ -132,7 +144,10 @@ private var openLayoutHeight: CGFloat? {
 Aplicar ao `NotificationExpandedView`:
 
 ```swift
-NotificationExpandedView(notification: notification)
+NotificationExpandedView(
+    notification: notification,
+    compactPresentation: usesAutomaticNotificationPanel
+)
     .frame(
         width: usesAutomaticNotificationPanel
             ? automaticNotificationContentWidth
@@ -140,7 +155,31 @@ NotificationExpandedView(notification: notification)
     )
 ```
 
-Os 400 pt de conteúdo, somados aos paddings abertos existentes, produzem uma silhueta visual próxima de 460 pt. Quando o valor for `nil`, o layout manual continuará ocupando os 640 pt atuais.
+Adicionar `compactPresentation` ao `NotificationExpandedView` e calcular seus insets:
+
+```swift
+init(notification: SystemNotification, compactPresentation: Bool = false) {
+    self.notification = notification
+    self.compactPresentation = compactPresentation
+}
+
+private var contentInsets: EdgeInsets {
+    EdgeInsets(
+        top: compactPresentation ? 10 : 14,
+        leading: compactPresentation ? 12 : 18,
+        bottom: compactPresentation ? 8 : 14,
+        trailing: compactPresentation ? 12 : 18
+    )
+}
+```
+
+Substituir os paddings horizontal e vertical fixos do corpo por:
+
+```swift
+.padding(contentInsets)
+```
+
+Os 380 pt de conteúdo, somados aos paddings externos reduzidos para 6 pt, produzem uma silhueta visual próxima de 430 pt. A apresentação compacta usa 12 pt de margem horizontal e 8 pt na base. Quando o valor for `nil`, o layout manual continuará ocupando os 640 pt atuais.
 
 - [ ] **Step 4: Verificar o diff**
 
@@ -178,7 +217,7 @@ Expected: ícone e remetente totalmente à esquerda do notch físico; resumo e a
 
 Disparar uma permissão e uma chamada com abertura automática.
 
-Expected: painel visual próximo de 460 pt, altura ajustada ao conteúdo e todos os controles legíveis.
+Expected: painel visual próximo de 430 pt, altura ajustada ao conteúdo e todos os controles legíveis.
 
 - [ ] **Step 4: Conferir abertura manual, monitor sem notch e OTP**
 

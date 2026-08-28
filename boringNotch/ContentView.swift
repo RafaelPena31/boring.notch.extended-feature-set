@@ -32,6 +32,7 @@ struct ContentView: View {
     @State private var anyDropDebounceTask: Task<Void, Never>?
     @State private var notificationPresentationWasOpen: Bool?
     @State private var notificationPresentationView: NotchViews?
+    @State private var automaticNotificationPanelToken: String?
 
     @State private var gestureProgress: CGFloat = .zero
 
@@ -145,9 +146,24 @@ struct ContentView: View {
             && notificationManager.activeNotification == nil
     }
 
+    private var usesAutomaticNotificationPanel: Bool {
+        guard vm.notchState == .open,
+              let token = automaticNotificationPanelToken,
+              let activeNotificationID = notificationManager.activeNotification?.id
+        else { return false }
+
+        return token == activeNotificationID
+    }
+
+    private var openSecondaryPadding: CGFloat {
+        usesAutomaticNotificationPanel ? 6 : 12
+    }
+
     private var openLayoutHeight: CGFloat? {
         guard vm.notchState == .open else { return nil }
-        return usesCompactPlayer ? nil : vm.notchSize.height
+        return usesCompactPlayer || usesAutomaticNotificationPanel
+            ? nil
+            : vm.notchSize.height
     }
 
     private var compactActivitySize: CGFloat {
@@ -155,6 +171,7 @@ struct ContentView: View {
     }
 
     private let pomodoroCompactWidth: CGFloat = 48
+    private let automaticNotificationContentWidth: CGFloat = 380
 
     private var computedChinWidth: CGFloat {
         var chinWidth: CGFloat = vm.closedNotchSize.width
@@ -163,9 +180,10 @@ struct ContentView: View {
             && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
         {
             chinWidth = 640
-        } else if notificationActivityActive,
-                  let notification = notificationManager.activeNotification {
-            chinWidth += notification.detectedCode == nil ? 270 : 165
+        } else if notificationActivityActive {
+            chinWidth = NotificationCompactLayout.silhouetteWidth(
+                for: vm.closedNotchSize.width
+            )
         } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
             && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle)
             && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
@@ -220,7 +238,10 @@ struct ContentView: View {
                         ? (cornerRadiusInsets.opened.top) : (cornerRadiusInsets.opened.bottom)
                         : cornerRadiusInsets.closed.bottom
                     )
-                    .padding([.horizontal, .bottom], vm.notchState == .open ? 12 : 0)
+                    .padding(
+                        [.horizontal, .bottom],
+                        vm.notchState == .open ? openSecondaryPadding : 0
+                    )
                     .background(.black)
                     .clipShape(currentNotchShape)
                     .overlay(alignment: .top) {
@@ -305,9 +326,12 @@ struct ContentView: View {
                         restoreAfterAutomaticNotification()
                     }
                     .onChange(of: vm.notchState) { _, newState in
-                        if newState == .closed && isHovering {
-                            withAnimation {
-                                isHovering = false
+                        if newState == .closed {
+                            automaticNotificationPanelToken = nil
+                            if isHovering {
+                                withAnimation {
+                                    isHovering = false
+                                }
                             }
                         }
                     }
@@ -517,7 +541,15 @@ struct ContentView: View {
             if vm.notchState == .open {
                 VStack {
                     if let notification = notificationManager.activeNotification {
-                        NotificationExpandedView(notification: notification)
+                        NotificationExpandedView(
+                            notification: notification,
+                            compactPresentation: usesAutomaticNotificationPanel
+                        )
+                            .frame(
+                                width: usesAutomaticNotificationPanel
+                                    ? automaticNotificationContentWidth
+                                    : nil
+                            )
                     } else if usesCompactPlayer {
                         CompactHomeView(albumArtNamespace: albumArtNamespace)
                             .frame(width: 336)
@@ -854,7 +886,7 @@ struct ContentView: View {
     }
 
     private func handleAutomaticNotificationOpening() {
-        guard notificationManager.activeNotification != nil,
+        guard let notification = notificationManager.activeNotification,
               vm.screenUUID == nil || vm.screenUUID == coordinator.selectedScreenUUID
         else { return }
 
@@ -862,7 +894,12 @@ struct ContentView: View {
             notificationPresentationWasOpen = vm.notchState == .open
             notificationPresentationView = coordinator.currentView
         }
-        if vm.notchState == .closed { doOpen() }
+        if vm.notchState == .closed {
+            automaticNotificationPanelToken = notification.id
+            doOpen()
+        } else {
+            automaticNotificationPanelToken = nil
+        }
     }
 
     private func restoreAfterAutomaticNotification() {
@@ -872,6 +909,7 @@ struct ContentView: View {
         }
         notificationPresentationWasOpen = nil
         notificationPresentationView = nil
+        automaticNotificationPanelToken = nil
 
         if !wasOpen, vm.notchState == .open,
            !SharingStateManager.shared.preventNotchClose {
