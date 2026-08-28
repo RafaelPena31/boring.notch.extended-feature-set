@@ -178,10 +178,49 @@ struct SystemNotification: Identifiable, Equatable {
     }
 }
 
-struct NotificationSourceApp: Identifiable, Hashable {
+struct NotificationSourceApp: Identifiable, Hashable, Codable, Defaults.Serializable {
     let name: String
-    let bundleID: String
-    var id: String { bundleID }
+    let bundleID: String?
+
+    var id: String { sourceKey }
+
+    var sourceKey: String {
+        if let bundleID {
+            return "bundle:\(bundleID)"
+        }
+        return "name:\(Self.normalizedName(name))"
+    }
+
+    static func make(bundleID: String?, appName: String?) -> NotificationSourceApp? {
+        let cleanBundleID = cleaned(bundleID)
+        let cleanName = cleaned(appName)
+
+        if let cleanBundleID {
+            return .init(name: cleanName ?? cleanBundleID, bundleID: cleanBundleID)
+        }
+        guard let cleanName else { return nil }
+        return .init(name: cleanName, bundleID: nil)
+    }
+
+    static func sourceKey(bundleID: String?, appName: String?) -> String? {
+        make(bundleID: bundleID, appName: appName)?.sourceKey
+    }
+
+    private static func normalizedName(_ value: String) -> String {
+        value
+            .folding(
+                options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+                locale: Locale(identifier: "en_US_POSIX")
+            )
+            .lowercased()
+    }
+
+    private static func cleaned(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty
+        else { return nil }
+        return value
+    }
 
     static let suggested: [NotificationSourceApp] = [
         .init(name: "Messages", bundleID: "com.apple.MobileSMS"),

@@ -224,9 +224,13 @@ extension Defaults.Keys {
     // MARK: Notifications
     static let notificationsEnabled = Key<Bool>("notificationsEnabled", default: false)
     static let notificationSetupCompleted = Key<Bool>("notificationSetupCompleted", default: false)
-    static let notificationAllowedApps = Key<[String]>(
-        "notificationAllowedApps",
-        default: NotificationSourceApp.suggested.map(\.bundleID)
+    static let notificationIgnoredSources = Key<[String]>(
+        "notificationIgnoredSources",
+        default: []
+    )
+    static let notificationObservedSources = Key<[NotificationSourceApp]>(
+        "notificationObservedSources",
+        default: []
     )
     static let notificationCategoryPreferences = Key<[NotificationCategoryPreference]>(
         "notificationCategoryPreferences",

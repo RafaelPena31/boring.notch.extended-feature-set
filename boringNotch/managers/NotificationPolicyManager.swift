@@ -108,12 +108,12 @@ enum NotificationPolicyManager {
     }
 
     private static func isAllowed(_ notification: SystemNotification) -> Bool {
-        let allowed = Set(Defaults[.notificationAllowedApps])
-        if let bundleID = notification.bundleID { return allowed.contains(bundleID) }
-
-        guard let name = notification.appName?.lowercased(), !name.isEmpty else { return false }
-        return NotificationSourceApp.suggested.contains { app in
-            allowed.contains(app.bundleID) && app.name.lowercased() == name
+        guard let sourceKey = NotificationSourceApp.sourceKey(
+            bundleID: notification.bundleID,
+            appName: notification.appName
+        ) else {
+            return true
         }
+        return !Set(Defaults[.notificationIgnoredSources]).contains(sourceKey)
     }
 }
