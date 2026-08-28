@@ -2,53 +2,55 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Center the visible expanded-notification content and balance its lateral clearances without changing panel sizing or notification behavior.
+**Goal:** Give the expanded notification exactly equal left and right edge clearances without changing panel sizing or notification behavior.
 
-**Architecture:** Keep `NotificationExpandedView` as the single owner of expanded notification layout. In automatic compact presentation, use `ViewThatFits` to center intrinsic short content and fall back to a real 260-point text-column proposal for long wrapping content; keep the dismiss control in an independent overlay whose inset matches the content inset.
+**Architecture:** Keep `NotificationExpandedView` as the single owner of expanded notification layout. Make the avatar/content row fill the notification area and align it to the leading edge, while the dismiss control remains trailing-aligned; both consume the same horizontal `contentInsets`, so their outer clearances are equal by construction. The text column retains a compact maximum width and wraps long messages normally.
 
 **Tech Stack:** Swift, SwiftUI, macOS, Xcode
 
 ---
 
-### Task 1: Center the visible notification group
+### Task 1: Anchor both notification edges symmetrically
 
 **Files:**
 - Modify: `boringNotch/components/Notch/NotificationLiveActivity.swift:180-245`
 
-- [ ] **Step 1: Add adaptive content sizing**
+- [ ] **Step 1: Keep one bounded content row**
 
-Add three explicit sizing modes and the compact fallback width:
+Remove `ContentSizing`, `ViewThatFits`, and the intrinsic/constrained variants. Keep a single maximum for the text/action column:
 
 ```swift
-private enum ContentSizing {
-    case intrinsic
-    case constrained
-    case flexible
+private var contentColumnMaxWidth: CGFloat {
+    compactPresentation ? 260 : 430
 }
-
-private let compactContentColumnWidth: CGFloat = 260
 ```
 
-- [ ] **Step 2: Center short content and preserve long-message wrapping**
+- [ ] **Step 2: Anchor the avatar to the leading inset**
 
-Use `ViewThatFits` to try the intrinsic group first and use a constrained fallback when that group cannot fit horizontally:
+Render one content row, retain the text-column limit for wrapping, and align the padded row to the leading edge:
 
 ```swift
-Group {
-    if compactPresentation {
-        ViewThatFits(in: .horizontal) {
-            contentGroup(sizing: .intrinsic)
-            contentGroup(sizing: .constrained)
+HStack(alignment: .top, spacing: 14) {
+    avatar
+
+    VStack(alignment: .leading, spacing: 8) {
+        header
+        message
+        actionArea
+        if let status = notification.statusMessage {
+            Text(status)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.orange)
+                .transition(.opacity)
         }
-    } else {
-        contentGroup(sizing: .flexible)
     }
+    .frame(maxWidth: contentColumnMaxWidth, alignment: .leading)
 }
 .padding(contentInsets)
-.frame(maxWidth: .infinity, alignment: .center)
+.frame(maxWidth: .infinity, alignment: .leading)
 ```
 
-Inside `contentGroup`, use intrinsic sizing without a maximum for the first candidate, an exact 260-point width for the compact fallback, and the existing flexible 430-point maximum for manual presentation. This lets `ViewThatFits` reject long single-line ideals and preserves their existing three-line wrapping in the fallback.
+The leading edge of `avatar` is now exactly `contentInsets.leading` from the notification area. Long content receives a bounded width proposal and keeps its existing three-line wrapping.
 
 - [ ] **Step 3: Balance the dismiss-control inset**
 
@@ -90,9 +92,9 @@ Expected: Release build succeeds, code-signing validation succeeds, and `/Applic
 
 - [ ] **Step 2: Validate on the installed app**
 
-Inject a short FaceTime-style call notification, open it automatically, and capture the installed app window.
+Inject short and long notifications, open each automatically, and capture the installed app window.
 
-Expected: the avatar/text/actions group is visually centered, the left and right clearances look balanced, the dismiss button remains independent, and no controls overlap.
+Expected: the clearance before the avatar equals the clearance after the dismiss button in both captures; long content wraps and no controls overlap.
 
 - [ ] **Step 3: Commit and publish**
 
@@ -100,7 +102,7 @@ Run:
 
 ```bash
 git add boringNotch/components/Notch/NotificationLiveActivity.swift docs/superpowers/plans/2026-08-28-expanded-notification-alignment.md
-git commit -m "fix: center expanded notification content"
+git commit -m "fix: align notification edge insets"
 git push origin main
 ```
 
