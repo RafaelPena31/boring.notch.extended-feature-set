@@ -33,7 +33,18 @@ Em telas sem notch físico, será usada a mesma composição simétrica com o no
 - O modo compacto não força a abertura vertical.
 - As configurações que determinam quais categorias abrem o notch permanecem inalteradas.
 - Ao trocar o app para outro monitor, a geometria é recalculada usando a tela selecionada.
-- O layout expandido continua mostrando o conteúdo completo e não faz parte desta alteração.
+- O layout expandido continua mostrando o conteúdo completo.
+
+## Abertura automática reduzida
+
+Quando uma categoria abrir o notch automaticamente, a notificação usará um painel próprio, menor que o painel completo do app:
+
+- largura visual aproximada de 460 pt;
+- altura determinada pelo conteúdo da notificação;
+- mesmos cantos, animação e controles do notch atual;
+- conteúdo centralizado, sem reservar o espaço vazio do painel completo de 640 pt.
+
+A redução só será aplicada quando a notificação abrir um notch que estava fechado. Se o usuário abrir o notch manualmente, ou se ele já estiver aberto quando a notificação chegar, o painel completo continuará usando 640 × 190 pt.
 
 ## Verificação manual
 
@@ -41,4 +52,5 @@ Em telas sem notch físico, será usada a mesma composição simétrica com o no
 - Confirmar que ambas as áreas laterais permanecem legíveis e não passam sob a câmera.
 - Repetir em monitor sem notch.
 - Conferir notificações com ação, OTP e indicador de fila.
-
+- Conferir que permissões e chamadas abertas automaticamente usam o painel reduzido.
+- Conferir que a abertura manual continua usando o painel completo.
