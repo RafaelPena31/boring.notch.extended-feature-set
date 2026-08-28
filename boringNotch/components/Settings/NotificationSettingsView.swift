@@ -7,7 +7,8 @@ import SwiftUI
 struct NotificationSettingsView: View {
     @Default(.notificationsEnabled) private var notificationsEnabled
     @Default(.notificationSetupCompleted) private var setupCompleted
-    @Default(.notificationAllowedApps) private var allowedApps
+    @Default(.notificationIgnoredSources) private var ignoredSources
+    @Default(.notificationObservedSources) private var observedSources
     @Default(.notificationCategoryPreferences) private var categoryPreferences
     @Default(.notificationContactsEnabled) private var contactsEnabled
     @Default(.notificationAppleIntelligenceEnabled) private var intelligenceEnabled
@@ -61,12 +62,13 @@ struct NotificationSettingsView: View {
             }
 
             Section {
-                ForEach(NotificationSourceApp.suggested) { app in
-                    Toggle(isOn: appBinding(app.bundleID)) {
+                ForEach(configurableSources) { app in
+                    Toggle(isOn: appBinding(app)) {
                         HStack(spacing: 8) {
-                            if let url = NSWorkspace.shared.urlForApplication(
-                                withBundleIdentifier: app.bundleID
-                            ) {
+                            if let bundleID = app.bundleID,
+                               let url = NSWorkspace.shared.urlForApplication(
+                                withBundleIdentifier: bundleID
+                               ) {
                                 Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
                                     .resizable()
                                     .frame(width: 20, height: 20)
@@ -81,7 +83,7 @@ struct NotificationSettingsView: View {
             } header: {
                 Text("Apps")
             } footer: {
-                Text("Only enabled apps can appear in the notch. macOS continues to show all other notifications normally.")
+                Text("Notifications from every app are shown by default. Turn off an app to ignore future banners from it.")
             }
 
             Section {
@@ -181,7 +183,7 @@ struct NotificationSettingsView: View {
 
             Section {
                 Button("Restore recommended notification settings") {
-                    allowedApps = NotificationSourceApp.suggested.map(\.bundleID)
+                    ignoredSources = []
                     categoryPreferences = NotificationCategoryPreference.recommended
                 }
             }
@@ -245,14 +247,21 @@ struct NotificationSettingsView: View {
         .frame(width: 440)
     }
 
-    private func appBinding(_ bundleID: String) -> Binding<Bool> {
+    private var configurableSources: [NotificationSourceApp] {
+        var seen = Set<String>()
+        return (NotificationSourceApp.suggested + observedSources).filter {
+            seen.insert($0.id).inserted
+        }
+    }
+
+    private func appBinding(_ app: NotificationSourceApp) -> Binding<Bool> {
         Binding(
-            get: { allowedApps.contains(bundleID) },
+            get: { !ignoredSources.contains(app.sourceKey) },
             set: { enabled in
                 if enabled {
-                    if !allowedApps.contains(bundleID) { allowedApps.append(bundleID) }
-                } else {
-                    allowedApps.removeAll { $0 == bundleID }
+                    ignoredSources.removeAll { $0 == app.sourceKey }
+                } else if !ignoredSources.contains(app.sourceKey) {
+                    ignoredSources.append(app.sourceKey)
                 }
             }
         )
