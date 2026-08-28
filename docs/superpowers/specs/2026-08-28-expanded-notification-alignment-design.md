@@ -2,20 +2,21 @@
 
 ## Problem
 
-The expanded notification centers a wide layout container while its visible content remains leading-aligned. The dismiss button is positioned independently at the trailing edge, so short notifications look shifted and the lateral empty space is visibly asymmetric.
+The expanded notification centers its content group while positioning the dismiss button independently at the trailing edge. These two independent anchors cannot guarantee equal outer clearances, so the avatar remains farther from the left edge than the dismiss button is from the right edge.
 
 ## Design
 
 - Keep the notification panel and its automatic/manual sizing behavior unchanged.
-- Center the complete visible notification group: avatar, text, and actions.
-- Let the text/action column use its intrinsic width for short content, while retaining a maximum width for long messages.
-- Keep the dismiss button as an independent trailing overlay.
-- Give the content group and dismiss control equivalent effective edge clearance.
+- Anchor the avatar/content group to the leading edge of the available notification area.
+- Keep the dismiss button anchored to the trailing edge.
+- Use the same effective horizontal inset on both anchors: the avatar's leading edge and the dismiss button's trailing edge must be equidistant from the panel edges.
+- Let the text/action column use the remaining width and preserve wrapping for long messages.
+- Keep the dismiss button independent from the content width so short and long notifications use the same edge geometry.
 - Preserve the existing notification types, actions, animations, and compact closed-notch layout.
 
 ## Validation
 
 - Build and install only with `./scripts/install-local.sh`.
 - Inject a short call notification into the installed build.
-- Capture the expanded notch and verify that the visible group no longer appears shifted and both lateral clearances are visually balanced.
+- Capture short and long expanded notifications and verify that the measured left clearance before the avatar equals the measured right clearance after the dismiss button.
 - No new automated tests are required for this visual-only adjustment, per the project workflow.
