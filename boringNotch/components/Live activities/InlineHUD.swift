@@ -15,7 +15,35 @@ struct InlineHUD: View {
     @Binding var icon: String
     @Binding var hoverAnimation: Bool
     @Binding var gestureProgress: CGFloat
+
+    private var wingWidth: CGFloat {
+        100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2
+    }
+
     var body: some View {
+        NotchSafeHorizontalLayout(
+            leadingWidth: wingWidth,
+            trailingWidth: wingWidth,
+            spacing: 0
+        ) {
+            leadingControl
+        } trailing: {
+            trailingControl
+        } legacy: {
+            HStack {
+                leadingControl
+
+                Rectangle()
+                    .fill(.black)
+                    .frame(width: vm.closedNotchSize.width - 20)
+
+                trailingControl
+            }
+        }
+        .frame(height: vm.closedNotchSize.height + (hoverAnimation ? 8 : 0), alignment: .center)
+    }
+
+    private var leadingControl: some View {
         HStack {
             HStack(spacing: 5) {
                 Group {
@@ -61,54 +89,59 @@ struct InlineHUD: View {
                     .allowsTightening(true)
                     .contentTransition(.numericText())
             }
-            .frame(width: 100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2, height: vm.notchSize.height - (hoverAnimation ? 0 : 12), alignment: .leading)
-            
-            Rectangle()
-                .fill(.black)
-                .frame(width: vm.closedNotchSize.width - 20)
-            
-            HStack {
-                if (type == .mic) {
-                    Text(value.isZero ? "muted" : "unmuted")
-                        .foregroundStyle(.gray)
-                        .lineLimit(1)
-                        .allowsTightening(true)
-                        .multilineTextAlignment(.trailing)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                        .contentTransition(.interpolate)
-                } else {
-                        HStack {
-                        DraggableProgressBar(value: $value, onChange: { v in
-                            if type == .volume {
-                                VolumeManager.shared.setAbsolute(Float32(v))
-                            } else if type == .brightness {
-                                BrightnessManager.shared.setAbsolute(value: Float32(v))
-                            }
-                        })
-                        if (type == .volume && value.isZero) {
-                            Text("muted")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundStyle(.gray)
-                                .lineLimit(1)
-                                .allowsTightening(true)
-                                .multilineTextAlignment(.trailing)
-                        } else if Defaults[.showClosedNotchHUDPercentage] {
-                            Text("\(Int(value * 100))%")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundStyle(.gray)
-                                .lineLimit(1)
-                                .allowsTightening(true)
-                                .multilineTextAlignment(.trailing)
+        }
+        .frame(
+            width: wingWidth,
+            height: vm.notchSize.height - (hoverAnimation ? 0 : 12),
+            alignment: .leading
+        )
+    }
+
+    private var trailingControl: some View {
+        HStack {
+            if type == .mic {
+                Text(value.isZero ? "muted" : "unmuted")
+                    .foregroundStyle(.gray)
+                    .lineLimit(1)
+                    .allowsTightening(true)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .contentTransition(.interpolate)
+            } else {
+                HStack {
+                    DraggableProgressBar(value: $value, onChange: { v in
+                        if type == .volume {
+                            VolumeManager.shared.setAbsolute(Float32(v))
+                        } else if type == .brightness {
+                            BrightnessManager.shared.setAbsolute(value: Float32(v))
                         }
+                    })
+                    if type == .volume && value.isZero {
+                        Text("muted")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.gray)
+                            .lineLimit(1)
+                            .allowsTightening(true)
+                            .multilineTextAlignment(.trailing)
+                    } else if Defaults[.showClosedNotchHUDPercentage] {
+                        Text("\(Int(value * 100))%")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.gray)
+                            .lineLimit(1)
+                            .allowsTightening(true)
+                            .multilineTextAlignment(.trailing)
                     }
                 }
             }
-            .padding(.trailing, 4)
-            .frame(width: 100 - (hoverAnimation ? 0 : 12) + gestureProgress / 2, height: vm.closedNotchSize.height - (hoverAnimation ? 0 : 12), alignment: .center)
         }
-        .frame(height: vm.closedNotchSize.height + (hoverAnimation ? 8 : 0), alignment: .center)
+        .padding(.trailing, 4)
+        .frame(
+            width: wingWidth,
+            height: vm.closedNotchSize.height - (hoverAnimation ? 0 : 12),
+            alignment: .center
+        )
     }
     
     func SpeakerSymbol(_ value: CGFloat) -> String {

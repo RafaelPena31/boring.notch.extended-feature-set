@@ -105,6 +105,15 @@ struct ContentView: View {
             && coordinator.sneakPeek.type != .pomodoro
     }
 
+    private var inlineHUDActive: Bool {
+        coordinator.sneakPeek.show
+            && Defaults[.inlineHUD]
+            && coordinator.sneakPeek.type != .music
+            && coordinator.sneakPeek.type != .battery
+            && coordinator.sneakPeek.type != .pomodoro
+            && vm.notchState == .closed
+    }
+
     private var caffeineActivityActive: Bool {
         caffeineEnabled
             && caffeineManager.isActive
@@ -170,8 +179,73 @@ struct ContentView: View {
         max(0, vm.effectiveClosedNotchHeight - 16)
     }
 
+    private enum CompactActivityKind: Hashable {
+        case pomodoro
+        case calendar
+        case caffeine
+    }
+
+    private struct BalancedCompactActivities {
+        var leading: [CompactActivityKind]
+        var trailing: [CompactActivityKind]
+        var leadingWidth: CGFloat
+        var trailingWidth: CGFloat
+    }
+
     private let pomodoroCompactWidth: CGFloat = 48
     private let automaticNotificationContentWidth: CGFloat = 380
+    private let compactActivitySpacing: CGFloat = 8
+
+    private var mediaAnchorSize: CGFloat {
+        max(0, vm.effectiveClosedNotchHeight - 12)
+    }
+
+    private var mediaVisualizerWidth: CGFloat {
+        max(0, mediaAnchorSize + gestureProgress / 2)
+    }
+
+    private var activeCompactActivities: [CompactActivityKind] {
+        var activities: [CompactActivityKind] = []
+        if pomodoroActivityActive { activities.append(.pomodoro) }
+        if calendarActivityActive { activities.append(.calendar) }
+        if caffeineActivityActive { activities.append(.caffeine) }
+        return activities
+    }
+
+    private func compactWidth(for activity: CompactActivityKind) -> CGFloat {
+        activity == .pomodoro ? pomodoroCompactWidth : compactActivitySize
+    }
+
+    private func balancedCompactActivities(
+        leadingBaseWidth: CGFloat = 0,
+        trailingBaseWidth: CGFloat = 0
+    ) -> BalancedCompactActivities {
+        var result = BalancedCompactActivities(
+            leading: [],
+            trailing: [],
+            leadingWidth: leadingBaseWidth,
+            trailingWidth: trailingBaseWidth
+        )
+
+        for activity in activeCompactActivities {
+            let activityWidth = compactWidth(for: activity)
+            if result.leadingWidth <= result.trailingWidth {
+                if result.leadingWidth > 0 {
+                    result.leadingWidth += compactActivitySpacing
+                }
+                result.leading.append(activity)
+                result.leadingWidth += activityWidth
+            } else {
+                if result.trailingWidth > 0 {
+                    result.trailingWidth += compactActivitySpacing
+                }
+                result.trailing.append(activity)
+                result.trailingWidth += activityWidth
+            }
+        }
+
+        return result
+    }
 
     private var computedChinWidth: CGFloat {
         var chinWidth: CGFloat = vm.closedNotchSize.width
@@ -180,40 +254,81 @@ struct ContentView: View {
             && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
         {
             chinWidth = 640
+        } else if inlineHUDActive && vm.hasPhysicalNotch {
+            let hudWingWidth = 100 - (isHovering ? 0 : 12) + gestureProgress / 2
+            chinWidth = NotchSafeLayoutMetrics.silhouetteWidth(
+                exclusionWidth: vm.physicalNotchExclusionWidth,
+                leading: hudWingWidth,
+                trailing: hudWingWidth,
+                spacing: 0
+            )
         } else if notificationActivityActive {
             chinWidth = NotificationCompactLayout.silhouetteWidth(
-                for: vm.closedNotchSize.width
+                for: vm.closedNotchSize.width,
+                hasPhysicalNotch: vm.hasPhysicalNotch
             )
         } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music)
             && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle)
             && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed
         {
-            chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
-            if pomodoroActivityActive {
-                chinWidth += pomodoroCompactWidth + 8
-            }
-            if calendarActivityActive {
-                chinWidth += compactActivitySize + 8
-            }
-            if caffeineActivityActive {
-                chinWidth += compactActivitySize + 8
+            if vm.hasPhysicalNotch {
+                let activities = balancedCompactActivities(
+                    leadingBaseWidth: mediaAnchorSize,
+                    trailingBaseWidth: mediaAnchorSize
+                )
+                chinWidth = NotchSafeLayoutMetrics.silhouetteWidth(
+                    exclusionWidth: vm.physicalNotchExclusionWidth,
+                    leading: activities.leadingWidth,
+                    trailing: activities.trailingWidth + max(0, gestureProgress / 2),
+                    spacing: compactActivitySpacing
+                )
+            } else {
+                chinWidth += (2 * mediaAnchorSize + 20)
+                if pomodoroActivityActive {
+                    chinWidth += pomodoroCompactWidth + 8
+                }
+                if calendarActivityActive {
+                    chinWidth += compactActivitySize + 8
+                }
+                if caffeineActivityActive {
+                    chinWidth += compactActivitySize + 8
+                }
             }
         } else if productivityActivityActive && musicSlotIdle {
-            chinWidth += compactActivitySize + 12
-            if pomodoroActivityActive {
-                chinWidth += pomodoroCompactWidth + 8
-            }
-            if calendarActivityActive {
-                chinWidth += compactActivitySize + 8
-            }
-            if caffeineActivityActive {
-                chinWidth += compactActivitySize + 8
+            if vm.hasPhysicalNotch {
+                let activities = balancedCompactActivities()
+                chinWidth = NotchSafeLayoutMetrics.silhouetteWidth(
+                    exclusionWidth: vm.physicalNotchExclusionWidth,
+                    leading: activities.leadingWidth,
+                    trailing: activities.trailingWidth,
+                    spacing: compactActivitySpacing
+                )
+            } else {
+                chinWidth += compactActivitySize + 12
+                if pomodoroActivityActive {
+                    chinWidth += pomodoroCompactWidth + 8
+                }
+                if calendarActivityActive {
+                    chinWidth += compactActivitySize + 8
+                }
+                if caffeineActivityActive {
+                    chinWidth += compactActivitySize + 8
+                }
             }
         } else if !coordinator.expandingView.show && vm.notchState == .closed
             && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace]
             && !vm.hideOnClosed
         {
-            chinWidth += (2 * max(0, vm.effectiveClosedNotchHeight - 12) + 20)
+            if vm.hasPhysicalNotch {
+                chinWidth = NotchSafeLayoutMetrics.silhouetteWidth(
+                    exclusionWidth: vm.physicalNotchExclusionWidth,
+                    leading: mediaAnchorSize,
+                    trailing: max(mediaAnchorSize, 30),
+                    spacing: compactActivitySpacing
+                )
+            } else {
+                chinWidth += (2 * mediaAnchorSize + 20)
+            }
         }
 
         return chinWidth
@@ -286,7 +401,12 @@ struct ContentView: View {
                             .animation(vm.notchState == .open ? openAnimation : closeAnimation, value: vm.notchState)
                             .animation(.smooth, value: gestureProgress)
                     }
-                    .contentShape(Rectangle())
+                    .contentShape(
+                        NotchSafeInteractionShape(
+                            exclusionWidth: vm.physicalNotchExclusionWidth,
+                            exclusionHeight: vm.physicalNotchExclusionHeight
+                        )
+                    )
                     .onHover { hovering in
                         handleHover(hovering)
                     }
@@ -430,31 +550,8 @@ struct ContentView: View {
                     if coordinator.expandingView.type == .battery && coordinator.expandingView.show
                         && vm.notchState == .closed && Defaults[.showPowerStatusNotifications]
                     {
-                        HStack(spacing: 0) {
-                            HStack {
-                                Text(batteryModel.statusText)
-                                    .font(.subheadline)
-                                    .foregroundStyle(.white)
-                            }
-
-                            Rectangle()
-                                .fill(.black)
-                                .frame(width: vm.closedNotchSize.width + 10)
-
-                            HStack {
-                                BoringBatteryView(
-                                    batteryWidth: 30,
-                                    isCharging: batteryModel.isCharging,
-                                    isInLowPowerMode: batteryModel.isInLowPowerMode,
-                                    isPluggedIn: batteryModel.isPluggedIn,
-                                    levelBattery: batteryModel.levelBattery,
-                                    isForNotification: true
-                                )
-                            }
-                            .frame(width: 76, alignment: .trailing)
-                        }
-                        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
-                      } else if coordinator.sneakPeek.show && Defaults[.inlineHUD] && (coordinator.sneakPeek.type != .music) && (coordinator.sneakPeek.type != .battery) && (coordinator.sneakPeek.type != .pomodoro) && vm.notchState == .closed {
+                        PowerStatusLiveActivity()
+                      } else if inlineHUDActive {
                           InlineHUD(type: $coordinator.sneakPeek.type, value: $coordinator.sneakPeek.value, icon: $coordinator.sneakPeek.icon, hoverAnimation: $isHovering, gestureProgress: $gestureProgress)
                               .transition(.opacity)
                       } else if notificationActivityActive,
@@ -576,45 +673,187 @@ struct ContentView: View {
                 .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
             }
         }
+        .contentShape(
+            NotchSafeInteractionShape(
+                exclusionWidth: vm.physicalNotchExclusionWidth,
+                exclusionHeight: vm.physicalNotchExclusionHeight
+            )
+        )
         .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], delegate: GeneralDropTargetDelegate(isTargeted: $vm.generalDropTargeting))
     }
 
     @ViewBuilder
-    func BoringFaceAnimation() -> some View {
-        HStack {
-            HStack {
-                Rectangle()
-                    .fill(.clear)
-                    .frame(
-                        width: max(0, vm.effectiveClosedNotchHeight - 12),
-                        height: max(0, vm.effectiveClosedNotchHeight - 12)
-                    )
+    func PowerStatusLiveActivity() -> some View {
+        let wingWidth: CGFloat = 140
+
+        NotchSafeHorizontalLayout(
+            leadingWidth: wingWidth,
+            trailingWidth: wingWidth,
+            spacing: compactActivitySpacing
+        ) {
+            Text(batteryModel.statusText)
+                .font(.subheadline)
+                .foregroundStyle(.white)
+                .lineLimit(1)
+        } trailing: {
+            BoringBatteryView(
+                batteryWidth: 30,
+                isCharging: batteryModel.isCharging,
+                isInLowPowerMode: batteryModel.isInLowPowerMode,
+                isPluggedIn: batteryModel.isPluggedIn,
+                levelBattery: batteryModel.levelBattery,
+                isForNotification: true
+            )
+        } legacy: {
+            HStack(spacing: 0) {
+                HStack {
+                    Text(batteryModel.statusText)
+                        .font(.subheadline)
+                        .foregroundStyle(.white)
+                }
+
                 Rectangle()
                     .fill(.black)
-                    .frame(width: vm.closedNotchSize.width - 20)
-                MinimalFaceFeatures()
+                    .frame(width: vm.closedNotchSize.width + 10)
+
+                HStack {
+                    BoringBatteryView(
+                        batteryWidth: 30,
+                        isCharging: batteryModel.isCharging,
+                        isInLowPowerMode: batteryModel.isInLowPowerMode,
+                        isPluggedIn: batteryModel.isPluggedIn,
+                        levelBattery: batteryModel.levelBattery,
+                        isForNotification: true
+                    )
+                }
+                .frame(width: 76, alignment: .trailing)
             }
-        }.frame(
-            height: vm.effectiveClosedNotchHeight,
+        }
+        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+    }
+
+    @ViewBuilder
+    func MusicArtwork() -> some View {
+        Image(nsImage: musicManager.albumArt)
+            .resizable()
+            .clipped()
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed
+                )
+            )
+            .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
+            .frame(width: mediaAnchorSize, height: mediaAnchorSize)
+    }
+
+    @ViewBuilder
+    func MusicVisualizer() -> some View {
+        HStack {
+            if useMusicVisualizer {
+                Rectangle()
+                    .fill(
+                        Defaults[.coloredSpectrogram]
+                            ? Color(nsColor: musicManager.avgColor).gradient
+                            : Color.gray.gradient
+                    )
+                    .frame(width: 50, alignment: .center)
+                    .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
+                    .mask {
+                        AudioSpectrumView(isPlaying: $musicManager.isPlaying)
+                            .frame(width: 16, height: 12)
+                    }
+            } else {
+                LottieAnimationContainer()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+        .frame(
+            width: mediaVisualizerWidth,
+            height: mediaAnchorSize,
             alignment: .center
         )
     }
 
     @ViewBuilder
+    private func CompactActivity(_ activity: CompactActivityKind) -> some View {
+        switch activity {
+        case .pomodoro:
+            PomodoroCompactLiveActivity()
+        case .calendar:
+            if let event = calendarActivity.activeEvent {
+                CalendarLiveActivityControl(
+                    event: event,
+                    progress: calendarActivity.progress,
+                    size: compactActivitySize,
+                    countdownLabel: calendarActivity.label
+                )
+            }
+        case .caffeine:
+            CaffeineCompactIndicator()
+        }
+    }
+
+    @ViewBuilder
+    func BoringFaceAnimation() -> some View {
+        NotchSafeHorizontalLayout(
+            leadingWidth: mediaAnchorSize,
+            trailingWidth: max(mediaAnchorSize, 30),
+            spacing: compactActivitySpacing
+        ) {
+            Rectangle()
+                .fill(.clear)
+                .frame(width: mediaAnchorSize, height: mediaAnchorSize)
+        } trailing: {
+            MinimalFaceFeatures()
+        } legacy: {
+            HStack {
+                Rectangle()
+                    .fill(.clear)
+                    .frame(width: mediaAnchorSize, height: mediaAnchorSize)
+                Rectangle()
+                    .fill(.black)
+                    .frame(width: vm.closedNotchSize.width - 20)
+                MinimalFaceFeatures()
+            }
+        }
+        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+    }
+
+    @ViewBuilder
     func MusicLiveActivity() -> some View {
+        let activities = balancedCompactActivities(
+            leadingBaseWidth: mediaAnchorSize,
+            trailingBaseWidth: mediaAnchorSize
+        )
+
+        NotchSafeHorizontalLayout(
+            leadingWidth: activities.leadingWidth,
+            trailingWidth: activities.trailingWidth + max(0, gestureProgress / 2),
+            spacing: compactActivitySpacing
+        ) {
+            HStack(spacing: compactActivitySpacing) {
+                ForEach(Array(activities.leading.reversed()), id: \.self) { activity in
+                    CompactActivity(activity)
+                }
+                MusicArtwork()
+            }
+        } trailing: {
+            HStack(spacing: compactActivitySpacing) {
+                MusicVisualizer()
+                ForEach(activities.trailing, id: \.self) { activity in
+                    CompactActivity(activity)
+                }
+            }
+        } legacy: {
+            LegacyMusicLiveActivity()
+        }
+        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+    }
+
+    @ViewBuilder
+    func LegacyMusicLiveActivity() -> some View {
         HStack {
-            Image(nsImage: musicManager.albumArt)
-                .resizable()
-                .clipped()
-                .clipShape(
-                    RoundedRectangle(
-                        cornerRadius: MusicPlayerImageSizes.cornerRadiusInset.closed)
-                )
-                .matchedGeometryEffect(id: "albumArt", in: albumArtNamespace)
-                .frame(
-                    width: max(0, vm.effectiveClosedNotchHeight - 12),
-                    height: max(0, vm.effectiveClosedNotchHeight - 12)
-                )
+            MusicArtwork()
 
             Rectangle()
                 .fill(.black)
@@ -663,37 +902,7 @@ struct ContentView: View {
                             + -cornerRadiusInsets.closed.top
                 )
 
-            HStack {
-                if useMusicVisualizer {
-                    Rectangle()
-                        .fill(
-                            Defaults[.coloredSpectrogram]
-                                ? Color(nsColor: musicManager.avgColor).gradient
-                                : Color.gray.gradient
-                        )
-                        .frame(width: 50, alignment: .center)
-                        .matchedGeometryEffect(id: "spectrum", in: albumArtNamespace)
-                        .mask {
-                            AudioSpectrumView(isPlaying: $musicManager.isPlaying)
-                                .frame(width: 16, height: 12)
-                        }
-                } else {
-                    LottieAnimationContainer()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
-            .frame(
-                width: max(
-                    0,
-                    vm.effectiveClosedNotchHeight - 12
-                        + gestureProgress / 2
-                ),
-                height: max(
-                    0,
-                    vm.effectiveClosedNotchHeight - 12
-                ),
-                alignment: .center
-            )
+            MusicVisualizer()
 
             if pomodoroActivityActive {
                 PomodoroCompactLiveActivity()
@@ -720,6 +929,32 @@ struct ContentView: View {
 
     @ViewBuilder
     func ProductivityLiveActivity() -> some View {
+        let activities = balancedCompactActivities()
+
+        NotchSafeHorizontalLayout(
+            leadingWidth: activities.leadingWidth,
+            trailingWidth: activities.trailingWidth,
+            spacing: compactActivitySpacing
+        ) {
+            HStack(spacing: compactActivitySpacing) {
+                ForEach(Array(activities.leading.reversed()), id: \.self) { activity in
+                    CompactActivity(activity)
+                }
+            }
+        } trailing: {
+            HStack(spacing: compactActivitySpacing) {
+                ForEach(activities.trailing, id: \.self) { activity in
+                    CompactActivity(activity)
+                }
+            }
+        } legacy: {
+            LegacyProductivityLiveActivity()
+        }
+        .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
+    }
+
+    @ViewBuilder
+    func LegacyProductivityLiveActivity() -> some View {
         HStack {
             ProductivityLeadingIcon()
 
@@ -727,21 +962,8 @@ struct ContentView: View {
                 .fill(.black)
                 .frame(width: vm.closedNotchSize.width + -cornerRadiusInsets.closed.top)
 
-            if pomodoroActivityActive {
-                PomodoroCompactLiveActivity()
-            }
-
-            if calendarActivityActive, let event = calendarActivity.activeEvent {
-                CalendarLiveActivityControl(
-                    event: event,
-                    progress: calendarActivity.progress,
-                    size: compactActivitySize,
-                    countdownLabel: calendarActivity.label
-                )
-            }
-
-            if caffeineActivityActive {
-                CaffeineCompactIndicator()
+            ForEach(activeCompactActivities, id: \.self) { activity in
+                CompactActivity(activity)
             }
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
@@ -813,7 +1035,12 @@ struct ContentView: View {
         if Defaults[.boringShelf] && vm.notchState == .closed {
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .contentShape(Rectangle())
+                .contentShape(
+                    NotchSafeInteractionShape(
+                        exclusionWidth: vm.physicalNotchExclusionWidth,
+                        exclusionHeight: vm.physicalNotchExclusionHeight
+                    )
+                )
         .onDrop(of: [.fileURL, .url, .utf8PlainText, .plainText, .data], isTargeted: $vm.dragDetectorTargeting) { providers in
             vm.dropEvent = true
             ShelfStateViewModel.shared.load(providers)

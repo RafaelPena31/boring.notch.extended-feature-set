@@ -36,6 +36,27 @@ class BoringViewModel: NSObject, ObservableObject {
 
     @Published var notchSize: CGSize = getClosedNotchSize()
     @Published var closedNotchSize: CGSize = getClosedNotchSize()
+
+    var currentScreen: NSScreen? {
+        if let screenUUID {
+            return NSScreen.screen(withUUID: screenUUID)
+        }
+
+        return NSScreen.main
+    }
+
+    var hasPhysicalNotch: Bool {
+        (currentScreen?.safeAreaInsets.top ?? 0) > 0
+    }
+
+    var physicalNotchExclusionWidth: CGFloat {
+        guard hasPhysicalNotch else { return 0 }
+        return getClosedNotchSize(screenUUID: screenUUID).width
+    }
+
+    var physicalNotchExclusionHeight: CGFloat {
+        max(0, currentScreen?.safeAreaInsets.top ?? 0)
+    }
     
     let webcamManager = WebcamManager.shared
     @Published var isCameraExpanded: Bool = false
@@ -104,7 +125,6 @@ class BoringViewModel: NSObject, ObservableObject {
 
     // Computed property for effective notch height
     var effectiveClosedNotchHeight: CGFloat {
-        let currentScreen = screenUUID.flatMap { NSScreen.screen(withUUID: $0) }
         let noNotchAndFullscreen = hideOnClosed && (currentScreen?.safeAreaInsets.top ?? 0 <= 0 || currentScreen == nil)
         return noNotchAndFullscreen ? 0 : closedNotchSize.height
     }
@@ -114,7 +134,7 @@ class BoringViewModel: NSObject, ObservableObject {
             return 0
         }
 
-        guard let currentScreen = screenUUID.flatMap({ NSScreen.screen(withUUID: $0) }) else {
+        guard let currentScreen else {
             return 0
         }
 

@@ -6,22 +6,50 @@ enum NotificationCompactLayout {
     static let spacing: CGFloat = 8
     static let preferredWingWidth: CGFloat = 205
 
-    static func centerGapWidth(for notchWidth: CGFloat) -> CGFloat {
-        max(0, notchWidth - cornerRadiusInsets.closed.top)
+    static func centerGapWidth(
+        for notchWidth: CGFloat,
+        hasPhysicalNotch: Bool
+    ) -> CGFloat {
+        hasPhysicalNotch
+            ? max(0, notchWidth)
+            : max(0, notchWidth - cornerRadiusInsets.closed.top)
     }
 
-    static func wingWidth(for notchWidth: CGFloat) -> CGFloat {
+    static func wingWidth(
+        for notchWidth: CGFloat,
+        hasPhysicalNotch: Bool
+    ) -> CGFloat {
         let availableContentWidth = windowSize.width
             - (2 * cornerRadiusInsets.closed.bottom)
-            - centerGapWidth(for: notchWidth)
+            - centerGapWidth(
+                for: notchWidth,
+                hasPhysicalNotch: hasPhysicalNotch
+            )
             - (2 * spacing)
 
         return min(preferredWingWidth, max(0, availableContentWidth / 2))
     }
 
-    static func silhouetteWidth(for notchWidth: CGFloat) -> CGFloat {
-        let contentWidth = (2 * wingWidth(for: notchWidth))
-            + centerGapWidth(for: notchWidth)
+    static func silhouetteWidth(
+        for notchWidth: CGFloat,
+        hasPhysicalNotch: Bool
+    ) -> CGFloat {
+        let wingWidth = wingWidth(
+            for: notchWidth,
+            hasPhysicalNotch: hasPhysicalNotch
+        )
+
+        if hasPhysicalNotch {
+            return NotchSafeLayoutMetrics.silhouetteWidth(
+                exclusionWidth: notchWidth,
+                leading: wingWidth,
+                trailing: wingWidth,
+                spacing: spacing
+            )
+        }
+
+        let contentWidth = (2 * wingWidth)
+            + centerGapWidth(for: notchWidth, hasPhysicalNotch: false)
             + (2 * spacing)
 
         return min(
@@ -44,11 +72,17 @@ struct NotificationCompactLiveActivity: View {
     }
 
     private var wingWidth: CGFloat {
-        NotificationCompactLayout.wingWidth(for: vm.closedNotchSize.width)
+        NotificationCompactLayout.wingWidth(
+            for: vm.closedNotchSize.width,
+            hasPhysicalNotch: vm.hasPhysicalNotch
+        )
     }
 
     private var centerGapWidth: CGFloat {
-        NotificationCompactLayout.centerGapWidth(for: vm.closedNotchSize.width)
+        NotificationCompactLayout.centerGapWidth(
+            for: vm.closedNotchSize.width,
+            hasPhysicalNotch: false
+        )
     }
 
     private var leadingTitle: String {
@@ -82,16 +116,26 @@ struct NotificationCompactLiveActivity: View {
     }
 
     var body: some View {
-        HStack(spacing: NotificationCompactLayout.spacing) {
+        NotchSafeHorizontalLayout(
+            leadingWidth: wingWidth,
+            trailingWidth: wingWidth,
+            spacing: NotificationCompactLayout.spacing
+        ) {
             leadingWing
-                .frame(width: wingWidth, alignment: .leading)
-
-            Rectangle()
-                .fill(.black)
-                .frame(width: centerGapWidth)
-
+        } trailing: {
             trailingWing
-                .frame(width: wingWidth, alignment: .trailing)
+        } legacy: {
+            HStack(spacing: NotificationCompactLayout.spacing) {
+                leadingWing
+                    .frame(width: wingWidth, alignment: .leading)
+
+                Rectangle()
+                    .fill(.black)
+                    .frame(width: centerGapWidth)
+
+                trailingWing
+                    .frame(width: wingWidth, alignment: .trailing)
+            }
         }
         .frame(height: vm.effectiveClosedNotchHeight, alignment: .center)
         .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .top)))

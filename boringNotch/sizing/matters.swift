@@ -22,6 +22,143 @@ enum MusicPlayerImageSizes {
     static let size = (opened: CGSize(width: 90, height: 90), closed: CGSize(width: 20, height: 20))
 }
 
+enum NotchSafeLayoutMetrics {
+    static func wingWidth(leading: CGFloat, trailing: CGFloat) -> CGFloat {
+        max(0, max(leading, trailing))
+    }
+
+    static func contentWidth(
+        exclusionWidth: CGFloat,
+        leading: CGFloat,
+        trailing: CGFloat,
+        spacing: CGFloat
+    ) -> CGFloat {
+        (2 * wingWidth(leading: leading, trailing: trailing))
+            + max(0, exclusionWidth)
+            + (2 * max(0, spacing))
+    }
+
+    static func silhouetteWidth(
+        exclusionWidth: CGFloat,
+        leading: CGFloat,
+        trailing: CGFloat,
+        spacing: CGFloat
+    ) -> CGFloat {
+        min(
+            windowSize.width,
+            contentWidth(
+                exclusionWidth: exclusionWidth,
+                leading: leading,
+                trailing: trailing,
+                spacing: spacing
+            ) + (2 * cornerRadiusInsets.closed.bottom)
+        )
+    }
+}
+
+struct NotchSafeHorizontalLayout<Leading: View, Trailing: View, Legacy: View>: View {
+    @EnvironmentObject private var vm: BoringViewModel
+
+    let leadingWidth: CGFloat
+    let trailingWidth: CGFloat
+    let spacing: CGFloat
+    private let leading: Leading
+    private let trailing: Trailing
+    private let legacy: Legacy
+
+    init(
+        leadingWidth: CGFloat,
+        trailingWidth: CGFloat,
+        spacing: CGFloat,
+        @ViewBuilder leading: () -> Leading,
+        @ViewBuilder trailing: () -> Trailing,
+        @ViewBuilder legacy: () -> Legacy
+    ) {
+        self.leadingWidth = leadingWidth
+        self.trailingWidth = trailingWidth
+        self.spacing = spacing
+        self.leading = leading()
+        self.trailing = trailing()
+        self.legacy = legacy()
+    }
+
+    private var wingWidth: CGFloat {
+        NotchSafeLayoutMetrics.wingWidth(
+            leading: leadingWidth,
+            trailing: trailingWidth
+        )
+    }
+
+    @ViewBuilder
+    var body: some View {
+        if vm.hasPhysicalNotch {
+            HStack(spacing: spacing) {
+                leading
+                    .frame(width: wingWidth, alignment: .trailing)
+
+                Rectangle()
+                    .fill(.black)
+                    .frame(width: vm.physicalNotchExclusionWidth)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+
+                trailing
+                    .frame(width: wingWidth, alignment: .leading)
+            }
+        } else {
+            legacy
+        }
+    }
+}
+
+struct NotchSafeInteractionShape: Shape {
+    let exclusionWidth: CGFloat
+    let exclusionHeight: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let safeWidth = min(max(0, exclusionWidth), rect.width)
+        let safeHeight = min(max(0, exclusionHeight), rect.height)
+
+        guard safeWidth > 0, safeHeight > 0 else {
+            return Path(rect)
+        }
+
+        let exclusionMinX = rect.midX - (safeWidth / 2)
+        let exclusionMaxX = rect.midX + (safeWidth / 2)
+        var path = Path()
+
+        path.addRect(
+            CGRect(
+                x: rect.minX,
+                y: rect.minY,
+                width: max(0, exclusionMinX - rect.minX),
+                height: safeHeight
+            )
+        )
+        path.addRect(
+            CGRect(
+                x: exclusionMaxX,
+                y: rect.minY,
+                width: max(0, rect.maxX - exclusionMaxX),
+                height: safeHeight
+            )
+        )
+
+        if rect.height > safeHeight {
+            path.addRect(
+                CGRect(
+                    x: rect.minX,
+                    y: rect.minY + safeHeight,
+                    width: rect.width,
+                    height: rect.height - safeHeight
+                )
+            )
+        }
+
+        return path
+    }
+}
+
 @MainActor func getScreenFrame(_ screenUUID: String? = nil) -> CGRect? {
     var selectedScreen = NSScreen.main
 
