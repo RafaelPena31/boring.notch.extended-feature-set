@@ -104,7 +104,7 @@ struct NotificationSettingsView: View {
             } header: {
                 Text("Apps")
             } footer: {
-                Text("Every app is supported; new apps appear here after their first banner. Choose which apps expand the notch to show the message without hovering. App rules override category opening settings, but never a hidden category or an active Focus Filter.")
+                Text("Automatic opening is off (Never) for every app by default. New apps appear here after their first banner. Select Use category setting to follow category rules, or choose an opening rule for the app. Hidden categories stay hidden; an active Focus Filter takes priority.")
             }
 
             Section {
@@ -126,7 +126,7 @@ struct NotificationSettingsView: View {
             } header: {
                 Text("Categories")
             } footer: {
-                Text("Never keeps the notification in the closed notch. The other options reuse the app's normal notch-opening animation.")
+                Text("Opening rules here apply to apps set to Use category setting. Never is the default and keeps notifications in the closed notch. The other options reuse the app's normal notch-opening animation.")
             }
 
             Section {
@@ -283,13 +283,14 @@ struct NotificationSettingsView: View {
     ) -> Binding<NotificationAutomaticOpeningPolicy?> {
         Binding(
             get: {
-                appOpeningPreferences.first { $0.sourceKey == app.sourceKey }?.automaticOpening
+                if let preference = appOpeningPreferences.first(where: { $0.sourceKey == app.sourceKey }) {
+                    return preference.automaticOpening
+                }
+                return .never
             },
             set: { policy in
                 appOpeningPreferences.removeAll { $0.sourceKey == app.sourceKey }
-                if let policy {
-                    appOpeningPreferences.append(.init(sourceKey: app.sourceKey, automaticOpening: policy))
-                }
+                appOpeningPreferences.append(.init(sourceKey: app.sourceKey, automaticOpening: policy))
             }
         )
     }

@@ -87,10 +87,13 @@ enum NotificationPolicyManager {
                 bundleID: notification.bundleID,
                 appName: notification.appName
             )
-            let appPolicy = Defaults[.notificationAppOpeningPreferences].first {
+            let appPreference = Defaults[.notificationAppOpeningPreferences].first {
                 $0.sourceKey == sourceKey
-            }?.automaticOpening
-            switch appPolicy ?? preference.automaticOpening {
+            }
+            let openingPolicy = appPreference.map {
+                $0.automaticOpening ?? preference.automaticOpening
+            } ?? .never
+            switch openingPolicy {
             case .never:
                 autoOpen = false
             case .always:

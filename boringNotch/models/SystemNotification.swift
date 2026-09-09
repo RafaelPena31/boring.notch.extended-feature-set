@@ -85,10 +85,10 @@ struct NotificationCategoryPreference: Codable, Equatable, Defaults.Serializable
     var automaticOpening: NotificationAutomaticOpeningPolicy
 
     static let recommended: [NotificationCategoryPreference] = [
-        .init(category: .otp, isShown: true, automaticOpening: .outsideFocus),
-        .init(category: .call, isShown: true, automaticOpening: .always),
-        .init(category: .permission, isShown: true, automaticOpening: .outsideFocus),
-        .init(category: .decision, isShown: true, automaticOpening: .outsideFocus),
+        .init(category: .otp, isShown: true, automaticOpening: .never),
+        .init(category: .call, isShown: true, automaticOpening: .never),
+        .init(category: .permission, isShown: true, automaticOpening: .never),
+        .init(category: .decision, isShown: true, automaticOpening: .never),
         .init(category: .message, isShown: true, automaticOpening: .never),
         .init(category: .mail, isShown: true, automaticOpening: .never),
         .init(category: .other, isShown: true, automaticOpening: .never)
@@ -97,7 +97,8 @@ struct NotificationCategoryPreference: Codable, Equatable, Defaults.Serializable
 
 struct NotificationAppOpeningPreference: Codable, Equatable, Defaults.Serializable {
     let sourceKey: String
-    var automaticOpening: NotificationAutomaticOpeningPolicy
+    // A stored nil explicitly opts into category rules. No stored preference means Never.
+    var automaticOpening: NotificationAutomaticOpeningPolicy?
 }
 
 enum SystemNotificationActionKind: Hashable {
