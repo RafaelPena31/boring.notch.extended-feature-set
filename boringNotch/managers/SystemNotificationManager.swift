@@ -490,7 +490,11 @@ final class SystemNotificationManager: ObservableObject {
     @discardableResult
     func open(_ notification: SystemNotification) async -> Bool {
         let opened = await openSourceApplication(for: notification)
-        if opened { dismissActive(token: notification.id) }
+        if opened {
+            dismissActive(token: notification.id)
+        } else {
+            setStatus("Could not open \(notification.appName ?? "the source app")", for: notification.id)
+        }
         return opened
     }
 

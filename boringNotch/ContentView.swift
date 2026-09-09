@@ -165,6 +165,14 @@ struct ContentView: View {
         return token == activeNotificationID
     }
 
+    private var expandedNotificationActive: Bool {
+        vm.notchState == .open && notificationManager.activeNotification != nil
+    }
+
+    private var notificationHeaderHeight: CGFloat {
+        max(24, vm.effectiveClosedNotchHeight, vm.physicalNotchExclusionHeight)
+    }
+
     private var openSecondaryPadding: CGFloat {
         usesAutomaticNotificationPanel ? 6 : 12
     }
@@ -413,15 +421,21 @@ struct ContentView: View {
                     }
                     .onTapGesture {
                         guard !isNotificationQuickActionHovered else { return }
-                        doOpen()
+                        if notificationActivityActive,
+                           let notification = notificationManager.activeNotification {
+                            Task { _ = await notificationManager.open(notification) }
+                        } else if !expandedNotificationActive {
+                            // Expanded notifications own their buttons and text input.
+                            doOpen()
+                        }
                     }
-                    .conditionalModifier(Defaults[.enableGestures]) { view in
+                    .conditionalModifier(Defaults[.enableGestures] && !expandedNotificationActive) { view in
                         view
                             .panGesture(direction: .down) { translation, phase in
                                 handleDownGesture(translation: translation, phase: phase)
                             }
                     }
-                    .conditionalModifier(Defaults[.closeGestureEnabled] && Defaults[.enableGestures]) { view in
+                    .conditionalModifier(Defaults[.closeGestureEnabled] && Defaults[.enableGestures] && !expandedNotificationActive) { view in
                         view
                             .panGesture(direction: .up) { translation, phase in
                                 handleUpGesture(translation: translation, phase: phase)
@@ -588,7 +602,9 @@ struct ContentView: View {
                                .fill(.clear)
                                .frame(
                                    width: vm.closedNotchSize.width - 20,
-                                   height: max(24, vm.effectiveClosedNotchHeight)
+                                   height: expandedNotificationActive
+                                       ? notificationHeaderHeight
+                                       : max(24, vm.effectiveClosedNotchHeight)
                                )
                        } else if vm.notchState == .open {
                            BoringHeader()
@@ -656,8 +672,14 @@ struct ContentView: View {
                     if let notification = notificationManager.activeNotification {
                         NotificationExpandedView(
                             notification: notification,
-                            compactPresentation: usesAutomaticNotificationPanel
+                            compactPresentation: usesAutomaticNotificationPanel,
+                            availableHeight: max(
+                                44,
+                                openNotchSize.height - notificationHeaderHeight
+                                    - 8 - openSecondaryPadding
+                            )
                         )
+                            .id(notification.id)
                             .frame(
                                 width: usesAutomaticNotificationPanel
                                     ? automaticNotificationContentWidth

@@ -204,12 +204,15 @@ struct NotificationExpandedView: View {
 
     let notification: SystemNotification
     let compactPresentation: Bool
+    let availableHeight: CGFloat
 
-    init(notification: SystemNotification, compactPresentation: Bool = false) {
+    init(notification: SystemNotification, compactPresentation: Bool = false, availableHeight: CGFloat) {
         self.notification = notification
         self.compactPresentation = compactPresentation
+        self.availableHeight = availableHeight
     }
 
+    @State private var contentHeight: CGFloat = 0
     @State private var replyText = ""
     @State private var isSending = false
     @State private var handoffFeedback = false
@@ -239,24 +242,38 @@ struct NotificationExpandedView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            avatar
+        ScrollView(.vertical) {
+            HStack(alignment: .top, spacing: 14) {
+                Button(action: openNotification) { avatar }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Open notification in \(notification.appName ?? "app")")
 
-            VStack(alignment: .leading, spacing: 8) {
-                header
-                message
-                actionArea
-                if let status = notification.statusMessage {
-                    Text(status)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.orange)
-                        .transition(.opacity)
+                VStack(alignment: .leading, spacing: 8) {
+                    header
+                    message
+                    actionArea
+                    if let status = notification.statusMessage {
+                        Text(status)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.orange)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .transition(.opacity)
+                    }
                 }
+                // Keep the pinned dismiss button clear even after scrolling.
+                .padding(.trailing, 36)
+                .frame(maxWidth: contentColumnMaxWidth, alignment: .leading)
             }
-            .frame(maxWidth: contentColumnMaxWidth, alignment: .leading)
+            .padding(contentInsets)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(GeometryReader { geometry in
+                Color.clear.preference(key: NotificationContentHeightKey.self, value: geometry.size.height)
+            })
         }
-        .padding(contentInsets)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: min(contentHeight > 0 ? contentHeight : availableHeight, availableHeight))
+        .onPreferenceChange(NotificationContentHeightKey.self) { height in
+            contentHeight = height
+        }
         .overlay(alignment: .topTrailing) {
             NotificationDismissButton(notificationID: notification.id)
                 .padding(.top, contentInsets.top)
@@ -318,18 +335,28 @@ struct NotificationExpandedView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 7) {
-            Text(notification.sender ?? notification.appName ?? "Notification")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .lineLimit(1)
+        HStack(alignment: .top, spacing: 7) {
+            Button(action: openNotification) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(notification.sender ?? notification.appName ?? "Notification")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .fixedSize(horizontal: false, vertical: true)
 
-            if let appName = notification.appName, appName != notification.sender {
-                Text(appName)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    if let appName = notification.appName, appName != notification.sender {
+                        Text(appName)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .lineLimit(nil)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityHint("Open the source app")
 
             if !manager.queued.isEmpty {
                 Button {
@@ -346,31 +373,29 @@ struct NotificationExpandedView: View {
                 .help("Show next notification")
             }
         }
-        .padding(.trailing, 36)
     }
 
-    @ViewBuilder
     private var message: some View {
-        if let subtitle = notification.secondaryText {
-            Text(subtitle)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        // Use the available height for the message, not generic category labels.
-        ViewThatFits(in: .vertical) {
-            Text(notification.previewText)
-                .font(.system(size: 13))
-                .foregroundStyle(.white)
-                .fixedSize(horizontal: false, vertical: true)
-            ScrollView {
+        Button(action: openNotification) {
+            VStack(alignment: .leading, spacing: 8) {
+                if let subtitle = notification.secondaryText {
+                    Text(subtitle)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Text(notification.previewText)
                     .font(.system(size: 13))
                     .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .lineLimit(nil)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
         }
-        .frame(maxHeight: compactPresentation ? 112 : 96)
+        .buttonStyle(.plain)
+        .accessibilityHint("Open the source app")
     }
 
     @ViewBuilder
@@ -552,9 +577,7 @@ struct NotificationExpandedView: View {
     }
 
     private var openButton: some View {
-        Button {
-            Task { _ = await manager.open(notification) }
-        } label: {
+        Button(action: openNotification) {
             Label("Open in \(notification.appName ?? "app")", systemImage: "arrow.up.forward.app.fill")
                 .font(.system(size: 12, weight: .medium))
                 .padding(.horizontal, 10)
@@ -562,6 +585,10 @@ struct NotificationExpandedView: View {
                 .background(.white.opacity(0.08), in: Capsule())
         }
         .buttonStyle(NotificationScaleButtonStyle())
+    }
+
+    private func openNotification() {
+        Task { _ = await manager.open(notification) }
     }
 
     private func beginInteraction() {
@@ -574,6 +601,14 @@ struct NotificationExpandedView: View {
         guard interactionHeld else { return }
         interactionHeld = false
         SharingStateManager.shared.endInteraction()
+    }
+}
+
+private struct NotificationContentHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
