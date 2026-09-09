@@ -32,13 +32,19 @@ enum NotificationPolicyManager {
         let text = [title, subtitle, body].compactMap { $0 }.joined(separator: " ")
         let normalized = text.lowercased()
 
+        // Incoming FaceTime banners can arrive while the app itself is not running,
+        // so the helper's running-application lookup may not resolve a bundle ID.
+        let isFaceTime = bundleID == "com.apple.FaceTime"
+            || appName?.trimmingCharacters(in: .whitespacesAndNewlines)
+                .caseInsensitiveCompare("FaceTime") == .orderedSame
+        if isFaceTime { return .call }
         if OTPDetector.detect(in: text) != nil { return .otp }
         if actions.contains(where: {
             let kind = SystemNotificationActionClassifier.kind(of: $0)
             return kind == .accept || kind == .decline
         }) || ["incoming call", "incoming video", "chamada recebida", "videochamada recebida"].contains(
             where: normalized.contains
-        ) || bundleID == "com.apple.FaceTime" {
+        ) {
             return .call
         }
         if ["permission", "authorization", "allow access", "grant access", "requires access"].contains(

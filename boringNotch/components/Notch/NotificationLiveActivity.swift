@@ -375,10 +375,10 @@ struct NotificationExpandedView: View {
 
     @ViewBuilder
     private var actionArea: some View {
-        if let code = notification.detectedCode {
-            codeRow(code)
-        } else if notification.category == .call {
+        if notification.category == .call {
             callActions
+        } else if let code = notification.detectedCode {
+            codeRow(code)
         } else if notification.canReply {
             replyArea
         } else if !userFacingActions.isEmpty {
@@ -410,21 +410,32 @@ struct NotificationExpandedView: View {
 
     @ViewBuilder
     private var callActions: some View {
-        HStack(spacing: 12) {
-            if let decline = notification.actions.first(where: {
-                SystemNotificationActionClassifier.kind(of: $0) == .decline
-            }) {
-                circleAction(symbol: "phone.down.fill", color: .red) {
-                    Task { _ = await manager.perform(decline, on: notification) }
+        let decline = notification.actions.first {
+            SystemNotificationActionClassifier.kind(of: $0) == .decline
+        }
+        let accept = notification.actions.first {
+            SystemNotificationActionClassifier.kind(of: $0) == .accept
+        }
+
+        if notification.isLive, decline != nil || accept != nil {
+            HStack(spacing: 12) {
+                if let decline {
+                    circleAction(symbol: "phone.down.fill", color: .red) {
+                        Task { _ = await manager.perform(decline, on: notification) }
+                    }
+                    .accessibilityLabel("Decline call")
+                }
+                if let accept {
+                    circleAction(symbol: "phone.fill", color: .green) {
+                        Task { _ = await manager.perform(accept, on: notification) }
+                    }
+                    .accessibilityLabel("Answer call")
                 }
             }
-            if let accept = notification.actions.first(where: { action in
-                SystemNotificationActionClassifier.kind(of: action) == .accept
-            }) {
-                circleAction(symbol: "phone.fill", color: .green) {
-                    Task { _ = await manager.perform(accept, on: notification) }
-                }
-            }
+        } else {
+            // Never substitute a text reply (or invent call controls) when macOS
+            // does not expose live accept/decline actions for this banner.
+            openButton
         }
     }
 

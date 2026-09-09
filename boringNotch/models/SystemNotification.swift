@@ -166,7 +166,7 @@ struct SystemNotification: Identifiable, Equatable {
     var detectedCode: String? { OTPDetector.detect(in: combinedText) }
 
     var canReply: Bool {
-        isLive && actions.contains { action in
+        isLive && category != .call && actions.contains { action in
             SystemNotificationActionClassifier.kind(of: action) == .reply
         }
     }
