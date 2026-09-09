@@ -1,6 +1,6 @@
 # Notification History — Grouped by App
 
-**Status:** Visual option B and first-version behavior approved; written specification awaiting review.
+**Status:** Approved for implementation planning on 2026-09-09, including the 200-item session limit.
 
 ## Scope
 
