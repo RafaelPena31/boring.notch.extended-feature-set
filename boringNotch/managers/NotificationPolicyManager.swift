@@ -83,7 +83,14 @@ enum NotificationPolicyManager {
         if focus.hasActiveOverride {
             autoOpen = focus.overrideCategories.contains(notification.category)
         } else {
-            switch preference.automaticOpening {
+            let sourceKey = NotificationSourceApp.sourceKey(
+                bundleID: notification.bundleID,
+                appName: notification.appName
+            )
+            let appPolicy = Defaults[.notificationAppOpeningPreferences].first {
+                $0.sourceKey == sourceKey
+            }?.automaticOpening
+            switch appPolicy ?? preference.automaticOpening {
             case .never:
                 autoOpen = false
             case .always:

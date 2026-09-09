@@ -35,7 +35,7 @@ private enum NotificationAXSemanticAction: String, CaseIterable {
     }
 }
 
-struct CapturedNotification {
+struct CapturedNotification: Equatable {
     let token: String
     let appName: String?
     let bundleID: String?
@@ -43,6 +43,7 @@ struct CapturedNotification {
     let subtitle: String?
     let body: String?
     let actions: [String]
+    var isUpdate = false
 }
 
 /// Observes ephemeral Notification Center banners through Accessibility.
@@ -55,6 +56,7 @@ final class NotificationWatcher {
     private var notificationCenterPID: pid_t?
     private var pollTimer: DispatchSourceTimer?
     private var liveElements: [String: AXUIElement] = [:]
+    private var lastCaptures: [String: CapturedNotification] = [:]
     private var heldTokens: Set<String> = []
     private var offscreenTokens: Set<String> = []
     private var originalWindowPositions: [String: CGPoint] = [:]
@@ -91,6 +93,7 @@ final class NotificationWatcher {
         notificationCenterElement = nil
         notificationCenterPID = nil
         liveElements.removeAll()
+        lastCaptures.removeAll()
         heldTokens.removeAll()
         offscreenTokens.removeAll()
         originalWindowPositions.removeAll()
@@ -109,14 +112,20 @@ final class NotificationWatcher {
             for banner in banners(in: window) {
                 guard let token = banner[kAXIdentifierAttribute] as? String else { continue }
                 visibleTokens.insert(token)
-                guard liveElements[token] == nil else { continue }
+                let isUpdate = liveElements[token] != nil
+                guard !isUpdate || heldTokens.contains(token) else { continue }
                 liveElements[token] = banner
-                onBanner?(capture(banner, token: token))
+                var notification = capture(banner, token: token)
+                guard notification != lastCaptures[token] else { continue }
+                lastCaptures[token] = notification
+                notification.isUpdate = isUpdate
+                onBanner?(notification)
             }
         }
 
         for token in Array(liveElements.keys) where !visibleTokens.contains(token) {
             liveElements[token] = nil
+            lastCaptures[token] = nil
             heldTokens.remove(token)
             offscreenTokens.remove(token)
             originalWindowPositions.removeValue(forKey: token)
@@ -153,6 +162,7 @@ final class NotificationWatcher {
 
         let expiredTokens = Array(liveElements.keys)
         liveElements.removeAll()
+        lastCaptures.removeAll()
         heldTokens.removeAll()
         offscreenTokens.removeAll()
         originalWindowPositions.removeAll()
@@ -241,11 +251,15 @@ final class NotificationWatcher {
     ) {
         guard depth < 10 else { return }
         if let identifier = element[kAXIdentifierAttribute] as? String,
-           ["title", "subtitle", "body"].contains(identifier),
-           let value = element[kAXValueAttribute] as? String {
-            parts[identifier] = value.trimmingCharacters(
+           ["title", "subtitle", "body"].contains(identifier) {
+            let raw = element[kAXValueAttribute]
+            let value = (raw as? String) ?? (raw as? NSAttributedString)?.string
+            let clean = value?.trimmingCharacters(
                 in: Self.bidiControlCharacters.union(.whitespacesAndNewlines)
             )
+            if let clean, !clean.isEmpty {
+                parts[identifier] = clean
+            }
         }
         for child in (element[kAXChildrenAttribute] as? [AXUIElement]) ?? [] {
             collectLabelledText(in: child, into: &parts, depth: depth + 1)
@@ -254,6 +268,9 @@ final class NotificationWatcher {
 
     private func availableActions(on banner: AXUIElement) -> [String] {
         var actions: [String] = []
+        if replyField(in: banner) != nil {
+            actions.append(NotificationAXSemanticAction.reply.rawValue)
+        }
 
         for rawAction in actionNames(of: banner) where rawAction != kAXPressAction {
             let label = actionLabel(rawAction)
@@ -399,8 +416,8 @@ final class NotificationWatcher {
         guard let banner = liveElements[token] else { return false }
 
         if replyField(in: banner) == nil {
-            _ = performSemanticAction(.reply, on: banner)
-                || performSemanticAction(.details, on: banner)
+            // "Show details" is not evidence that this banner accepts a reply.
+            guard performSemanticAction(.reply, on: banner) else { return false }
             Thread.sleep(forTimeInterval: 0.4)
         }
 

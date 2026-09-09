@@ -95,6 +95,11 @@ struct NotificationCategoryPreference: Codable, Equatable, Defaults.Serializable
     ]
 }
 
+struct NotificationAppOpeningPreference: Codable, Equatable, Defaults.Serializable {
+    let sourceKey: String
+    var automaticOpening: NotificationAutomaticOpeningPolicy
+}
+
 enum SystemNotificationActionKind: Hashable {
     case reply
     case details
@@ -143,12 +148,12 @@ struct SystemNotification: Identifiable, Equatable {
     let id: String
     let appName: String?
     let bundleID: String?
-    let title: String?
-    let subtitle: String?
-    let body: String?
-    let actions: [String]
+    var title: String?
+    var subtitle: String?
+    var body: String?
+    var actions: [String]
     let receivedAt: Date
-    let category: SystemNotificationCategory
+    var category: SystemNotificationCategory
     var isLive: Bool = true
     var isHeld: Bool = false
     var statusMessage: String?
@@ -160,13 +165,41 @@ struct SystemNotification: Identifiable, Equatable {
     var detectedCode: String? { OTPDetector.detect(in: combinedText) }
 
     var canReply: Bool {
-        actions.contains { action in
-            guard let kind = SystemNotificationActionClassifier.kind(of: action) else { return false }
-            return kind == .reply || kind == .details
+        isLive && actions.contains { action in
+            SystemNotificationActionClassifier.kind(of: action) == .reply
         }
     }
 
     var sender: String? { title }
+
+    /// Prefer actual content over category labels and repeated source metadata.
+    var previewText: String {
+        meaningfulText(body) ?? meaningfulText(subtitle) ?? meaningfulText(title)
+            ?? "Open the app to view this notification"
+    }
+
+    var secondaryText: String? {
+        guard let subtitle = meaningfulText(subtitle),
+              subtitle != previewText, subtitle != title else { return nil }
+        return subtitle
+    }
+
+    private func meaningfulText(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty, value != appName else { return nil }
+        return value
+    }
+
+    mutating func updateContent(from notification: SystemNotification) {
+        // A banner can expose more text/actions after Notification Center expands it.
+        // Keep queue age, hold state and any draft/status belonging to the same token.
+        title = notification.title ?? title
+        subtitle = notification.subtitle ?? subtitle
+        body = notification.body ?? body
+        actions = notification.actions
+        category = notification.category
+        isLive = notification.isLive
+    }
 
     var appIcon: NSImage? {
         guard let bundleID,

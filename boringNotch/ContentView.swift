@@ -33,6 +33,7 @@ struct ContentView: View {
     @State private var notificationPresentationWasOpen: Bool?
     @State private var notificationPresentationView: NotchViews?
     @State private var automaticNotificationPanelToken: String?
+    @State private var isNotificationQuickActionHovered = false
 
     @State private var gestureProgress: CGFloat = .zero
 
@@ -411,6 +412,7 @@ struct ContentView: View {
                         handleHover(hovering)
                     }
                     .onTapGesture {
+                        guard !isNotificationQuickActionHovered else { return }
                         doOpen()
                     }
                     .conditionalModifier(Defaults[.enableGestures]) { view in
@@ -443,7 +445,14 @@ struct ContentView: View {
                         handleAutomaticNotificationOpening()
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .notificationPresentationEnded)) { _ in
+                        hoverTask?.cancel()
                         restoreAfterAutomaticNotification()
+                    }
+                    .onChange(of: notificationManager.activeNotification?.id) { _, token in
+                        if vm.notchState == .closed { hoverTask?.cancel() }
+                        if automaticNotificationPanelToken != nil {
+                            automaticNotificationPanelToken = token
+                        }
                     }
                     .onChange(of: vm.notchState) { _, newState in
                         if newState == .closed {
@@ -556,7 +565,14 @@ struct ContentView: View {
                               .transition(.opacity)
                       } else if notificationActivityActive,
                                 let notification = notificationManager.activeNotification {
-                          NotificationCompactLiveActivity(notification: notification)
+                          NotificationCompactLiveActivity(notification: notification) { hovering in
+                              isNotificationQuickActionHovered = hovering
+                              if hovering {
+                                  hoverTask?.cancel()
+                              } else if isHovering, notificationManager.activeNotification != nil {
+                                  handleHover(true)
+                              }
+                          }
                               .frame(alignment: .center)
                       } else if (!coordinator.expandingView.show || coordinator.expandingView.type == .music) && vm.notchState == .closed && (musicManager.isPlaying || !musicManager.isPlayerIdle) && coordinator.musicLiveActivityEnabled && !vm.hideOnClosed {
                           MusicLiveActivity()
@@ -1066,6 +1082,7 @@ struct ContentView: View {
         if hovering {
             notificationManager.holdActive()
         } else {
+            isNotificationQuickActionHovered = false
             notificationManager.resumeExpiry(after: 3)
         }
         
@@ -1079,6 +1096,7 @@ struct ContentView: View {
             }
             
             guard vm.notchState == .closed,
+                  !isNotificationQuickActionHovered,
                   !coordinator.sneakPeek.show,
                   Defaults[.openNotchOnHover] else { return }
             
@@ -1088,6 +1106,7 @@ struct ContentView: View {
                 
                 await MainActor.run {
                     guard self.vm.notchState == .closed,
+                          !self.isNotificationQuickActionHovered,
                           self.isHovering,
                           !self.coordinator.sneakPeek.show else { return }
                     
@@ -1121,9 +1140,9 @@ struct ContentView: View {
             notificationPresentationWasOpen = vm.notchState == .open
             notificationPresentationView = coordinator.currentView
         }
-        if vm.notchState == .closed {
+        if vm.notchState == .closed || notificationPresentationWasOpen == false {
             automaticNotificationPanelToken = notification.id
-            doOpen()
+            if vm.notchState == .closed { doOpen() }
         } else {
             automaticNotificationPanelToken = nil
         }

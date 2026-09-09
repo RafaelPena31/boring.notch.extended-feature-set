@@ -236,6 +236,10 @@ extension Defaults.Keys {
         "notificationCategoryPreferences",
         default: NotificationCategoryPreference.recommended
     )
+    static let notificationAppOpeningPreferences = Key<[NotificationAppOpeningPreference]>(
+        "notificationAppOpeningPreferences",
+        default: []
+    )
     static let notificationContactsEnabled = Key<Bool>(
         "notificationContactsEnabled",
         default: false

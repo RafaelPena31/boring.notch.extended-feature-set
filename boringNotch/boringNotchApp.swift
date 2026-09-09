@@ -443,6 +443,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        KeyboardShortcuts.onKeyDown(for: .dismissNotification) {
+            Task { @MainActor in
+                SystemNotificationManager.shared.dismissActive()
+            }
+        }
+
         if !Defaults[.showOnAllDisplays] {
             let viewModel = self.vm
             let window = createBoringNotchWindow(

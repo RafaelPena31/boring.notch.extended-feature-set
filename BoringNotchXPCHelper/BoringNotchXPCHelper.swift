@@ -58,6 +58,7 @@ class BoringNotchXPCHelper: NSObject, BoringNotchXPCHelperProtocol {
                 var payload: [String: String] = [
                     "token": notification.token,
                     "actions": notification.actions.joined(separator: "\n"),
+                    "isUpdate": notification.isUpdate ? "true" : "false",
                 ]
                 payload["appName"] = notification.appName
                 payload["bundleID"] = notification.bundleID

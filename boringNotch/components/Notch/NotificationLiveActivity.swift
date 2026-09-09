@@ -66,6 +66,7 @@ struct NotificationCompactLiveActivity: View {
     @ObservedObject private var manager = SystemNotificationManager.shared
 
     let notification: SystemNotification
+    var onQuickActionHover: (Bool) -> Void = { _ in }
 
     private var iconSize: CGFloat {
         max(20, vm.effectiveClosedNotchHeight - 12)
@@ -88,31 +89,12 @@ struct NotificationCompactLiveActivity: View {
     private var leadingTitle: String {
         notification.sender
             ?? notification.appName
-            ?? notification.category.label
+            ?? "Notification"
     }
 
     private var leadingSubtitle: String? {
-        let subtitle = notification.appName ?? notification.category.label
+        let subtitle = notification.appName
         return subtitle == leadingTitle ? nil : subtitle
-    }
-
-    private var summary: String {
-        notification.body
-            ?? notification.subtitle
-            ?? notification.category.label
-    }
-
-    private var summaryContext: String? {
-        if let subtitle = notification.subtitle,
-           subtitle != summary,
-           subtitle != notification.sender
-        {
-            return subtitle
-        }
-
-        return notification.category.label == summary
-            ? nil
-            : notification.category.label
     }
 
     var body: some View {
@@ -185,27 +167,15 @@ struct NotificationCompactLiveActivity: View {
                         .background(Color.effectiveAccent, in: Circle())
                 }
                 .buttonStyle(NotificationScaleButtonStyle())
+                .accessibilityLabel("Copy verification code")
+                .onHover(perform: onQuickActionHover)
             } else {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(summary)
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-
-                    if let summaryContext {
-                        Text(summaryContext)
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                Image(systemName: notification.category.symbolName)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(notification.isLive ? Color.effectiveAccent : .secondary)
+                Text(notification.previewText)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white)
+                    .lineLimit(vm.effectiveClosedNotchHeight >= 30 ? 2 : 1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             if !manager.queued.isEmpty {
@@ -217,6 +187,12 @@ struct NotificationCompactLiveActivity: View {
                     .padding(.vertical, 2)
                     .background(.white.opacity(0.14), in: Capsule())
             }
+
+            NotificationDismissButton(
+                notificationID: notification.id,
+                height: min(28, vm.effectiveClosedNotchHeight)
+            )
+                .onHover(perform: onQuickActionHover)
         }
     }
 }
@@ -282,7 +258,7 @@ struct NotificationExpandedView: View {
         .padding(contentInsets)
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(alignment: .topTrailing) {
-            dismissButton
+            NotificationDismissButton(notificationID: notification.id)
                 .padding(.top, contentInsets.top)
                 .padding(.trailing, contentInsets.trailing)
         }
@@ -314,6 +290,14 @@ struct NotificationExpandedView: View {
             manager.setDraft(text, for: notification.id)
             if replyFocused { manager.holdActive() }
         }
+        .onChange(of: notification.canReply) { _, canReply in
+            guard !canReply else { return }
+            replyFocused = false
+            hostWindow?.wantsKeyForTextInput = false
+            manager.isComposingReply = false
+            suggestions = []
+            endInteraction()
+        }
     }
 
     @ViewBuilder
@@ -340,10 +324,12 @@ struct NotificationExpandedView: View {
                 .foregroundStyle(.white)
                 .lineLimit(1)
 
-            Text(notification.appName ?? notification.category.label)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
+            if let appName = notification.appName, appName != notification.sender {
+                Text(appName)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
 
             if !manager.queued.isEmpty {
                 Button {
@@ -360,24 +346,31 @@ struct NotificationExpandedView: View {
                 .help("Show next notification")
             }
         }
-        .padding(.trailing, 28)
+        .padding(.trailing, 36)
     }
 
     @ViewBuilder
     private var message: some View {
-        if let subtitle = notification.subtitle, subtitle != notification.sender {
+        if let subtitle = notification.secondaryText {
             Text(subtitle)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
-        if let body = notification.body {
-            Text(body)
+        // Use the available height for the message, not generic category labels.
+        ViewThatFits(in: .vertical) {
+            Text(notification.previewText)
                 .font(.system(size: 13))
-                .foregroundStyle(.secondary.opacity(0.95))
-                .lineLimit(3)
+                .foregroundStyle(.white)
                 .fixedSize(horizontal: false, vertical: true)
+            ScrollView {
+                Text(notification.previewText)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
+        .frame(maxHeight: compactPresentation ? 112 : 96)
     }
 
     @ViewBuilder
@@ -515,7 +508,8 @@ struct NotificationExpandedView: View {
     }
 
     private var canSend: Bool {
-        !replyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSending
+        notification.canReply
+            && !replyText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isSending
     }
 
     private func send() {
@@ -559,19 +553,6 @@ struct NotificationExpandedView: View {
         .buttonStyle(NotificationScaleButtonStyle())
     }
 
-    private var dismissButton: some View {
-        Button {
-            manager.dismissActive(token: notification.id)
-        } label: {
-            Image(systemName: "xmark")
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(.secondary)
-                .frame(width: 20, height: 20)
-                .background(.white.opacity(0.1), in: Circle())
-        }
-        .buttonStyle(NotificationScaleButtonStyle())
-    }
-
     private func beginInteraction() {
         guard !interactionHeld else { return }
         interactionHeld = true
@@ -582,6 +563,29 @@ struct NotificationExpandedView: View {
         guard interactionHeld else { return }
         interactionHeld = false
         SharingStateManager.shared.endInteraction()
+    }
+}
+
+private struct NotificationDismissButton: View {
+    let notificationID: String
+    var height: CGFloat = 28
+    @State private var isHovering = false
+
+    var body: some View {
+        Button {
+            SystemNotificationManager.shared.dismissActive(token: notificationID)
+        } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 28, height: height)
+                .background(.white.opacity(isHovering ? 0.24 : 0.12), in: Capsule())
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(NotificationScaleButtonStyle())
+        .onHover { isHovering = $0 }
+        .accessibilityLabel("Dismiss notification")
+        .help("Dismiss notification")
     }
 }
 

@@ -2076,6 +2076,9 @@ struct Shortcuts: View {
                 KeyboardShortcuts.Recorder("Start or pause:", name: .pomodoroToggle)
                 KeyboardShortcuts.Recorder("Skip phase:", name: .pomodoroSkip)
             }
+            Section("Notifications") {
+                KeyboardShortcuts.Recorder("Dismiss current notification:", name: .dismissNotification)
+            }
         }
         .accentColor(.effectiveAccent)
         .navigationTitle("Shortcuts")

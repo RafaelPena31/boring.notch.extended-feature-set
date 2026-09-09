@@ -2,6 +2,7 @@ import AppKit
 import Contacts
 import Defaults
 import Intents
+import KeyboardShortcuts
 import SwiftUI
 
 struct NotificationSettingsView: View {
@@ -10,6 +11,7 @@ struct NotificationSettingsView: View {
     @Default(.notificationIgnoredSources) private var ignoredSources
     @Default(.notificationObservedSources) private var observedSources
     @Default(.notificationCategoryPreferences) private var categoryPreferences
+    @Default(.notificationAppOpeningPreferences) private var appOpeningPreferences
     @Default(.notificationContactsEnabled) private var contactsEnabled
     @Default(.notificationAppleIntelligenceEnabled) private var intelligenceEnabled
 
@@ -62,28 +64,47 @@ struct NotificationSettingsView: View {
             }
 
             Section {
+                KeyboardShortcuts.Recorder("Dismiss current notification", name: .dismissNotification)
+            } header: {
+                Text("Quick dismiss")
+            } footer: {
+                Text("Click the × in the closed or open notch to dismiss immediately, without expanding it first. You can also set a global keyboard shortcut here.")
+            }
+
+            Section {
                 ForEach(configurableSources) { app in
-                    Toggle(isOn: appBinding(app)) {
-                        HStack(spacing: 8) {
-                            if let bundleID = app.bundleID,
-                               let url = NSWorkspace.shared.urlForApplication(
-                                withBundleIdentifier: bundleID
-                               ) {
-                                Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                                    .resizable()
-                                    .frame(width: 20, height: 20)
-                            } else {
-                                Image(systemName: "app")
-                                    .frame(width: 20, height: 20)
+                    VStack(alignment: .leading, spacing: 7) {
+                        Toggle(isOn: appBinding(app)) {
+                            HStack(spacing: 8) {
+                                if let bundleID = app.bundleID,
+                                   let url = NSWorkspace.shared.urlForApplication(
+                                    withBundleIdentifier: bundleID
+                                   ) {
+                                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                                        .resizable()
+                                        .frame(width: 20, height: 20)
+                                } else {
+                                    Image(systemName: "app")
+                                        .frame(width: 20, height: 20)
+                                }
+                                Text(app.name)
                             }
-                            Text(app.name)
                         }
+                        Picker("Open notch automatically", selection: appOpeningBinding(app)) {
+                            Text("Use category setting")
+                                .tag(Optional<NotificationAutomaticOpeningPolicy>.none)
+                            ForEach(NotificationAutomaticOpeningPolicy.allCases) { policy in
+                                Text(policy.label).tag(Optional(policy))
+                            }
+                        }
+                        .disabled(ignoredSources.contains(app.sourceKey))
                     }
+                    .padding(.vertical, 3)
                 }
             } header: {
                 Text("Apps")
             } footer: {
-                Text("Notifications from every app are shown by default. Turn off an app to ignore future banners from it.")
+                Text("Every app is supported; new apps appear here after their first banner. Choose which apps expand the notch to show the message without hovering. App rules override category opening settings, but never a hidden category or an active Focus Filter.")
             }
 
             Section {
@@ -121,7 +142,7 @@ struct NotificationSettingsView: View {
                 }
 
                 LabeledContent("Focus filter") {
-                    Text(focus.hasActiveOverride ? "Active for this Focus" : "Using category defaults")
+                    Text(focus.hasActiveOverride ? "Active for this Focus" : "Using app and category settings")
                         .foregroundStyle(.secondary)
                 }
 
@@ -139,7 +160,7 @@ struct NotificationSettingsView: View {
             } header: {
                 Text("Focus")
             } footer: {
-                Text("Add the Boring Notch Focus Filter to each macOS Focus that needs its own automatic-opening categories. The app reads only whether Focus is active, never its name.")
+                Text("An active Boring Notch Focus Filter takes priority over app and category opening settings. Without a filter, Only outside Focus opens only when Focus is confirmed inactive; Always also opens during Focus. The app never reads the Focus name.")
             }
 
             Section {
@@ -185,6 +206,7 @@ struct NotificationSettingsView: View {
                 Button("Restore recommended notification settings") {
                     ignoredSources = []
                     categoryPreferences = NotificationCategoryPreference.recommended
+                    appOpeningPreferences = []
                 }
             }
         }
@@ -251,7 +273,25 @@ struct NotificationSettingsView: View {
         var seen = Set<String>()
         return (NotificationSourceApp.suggested + observedSources).filter {
             seen.insert($0.id).inserted
+        }.sorted {
+            $0.name.localizedStandardCompare($1.name) == .orderedAscending
         }
+    }
+
+    private func appOpeningBinding(
+        _ app: NotificationSourceApp
+    ) -> Binding<NotificationAutomaticOpeningPolicy?> {
+        Binding(
+            get: {
+                appOpeningPreferences.first { $0.sourceKey == app.sourceKey }?.automaticOpening
+            },
+            set: { policy in
+                appOpeningPreferences.removeAll { $0.sourceKey == app.sourceKey }
+                if let policy {
+                    appOpeningPreferences.append(.init(sourceKey: app.sourceKey, automaticOpening: policy))
+                }
+            }
+        )
     }
 
     private func appBinding(_ app: NotificationSourceApp) -> Binding<Bool> {

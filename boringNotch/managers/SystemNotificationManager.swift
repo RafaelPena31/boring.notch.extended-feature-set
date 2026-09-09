@@ -192,7 +192,8 @@ final class SystemNotificationManager: ObservableObject {
         guard let token = payload["token"], !token.isEmpty else { return }
 
         func value(_ key: String) -> String? {
-            guard let value = payload[key], !value.isEmpty else { return nil }
+            guard let value = payload[key]?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !value.isEmpty else { return nil }
             return value
         }
 
@@ -204,28 +205,63 @@ final class SystemNotificationManager: ObservableObject {
 
         recordSource(bundleID: bundleID, appName: appName)
 
+        let existing = activeNotification?.id == token
+            ? activeNotification : queued.first { $0.id == token }
+        let title = value("title") ?? existing?.title
+        let subtitle = value("subtitle") ?? existing?.subtitle
+        let body = value("body") ?? existing?.body
         let category = NotificationPolicyManager.category(
             bundleID: bundleID,
             appName: appName,
-            title: value("title"),
-            subtitle: value("subtitle"),
-            body: value("body"),
+            title: title,
+            subtitle: subtitle,
+            body: body,
             actions: actions
         )
         var notification = SystemNotification(
             id: token,
             appName: appName,
             bundleID: bundleID,
-            title: value("title"),
-            subtitle: value("subtitle"),
-            body: value("body"),
+            title: title,
+            subtitle: subtitle,
+            body: body,
             actions: actions,
             receivedAt: Date(),
             category: category
         )
 
-        guard !isDuplicate(notification) else { return }
         let decision = NotificationPolicyManager.decision(for: notification)
+        if let current = activeNotification, current.id == token {
+            guard decision.shouldShow else {
+                dismissActive(token: token)
+                return
+            }
+            activeNotification?.updateContent(from: notification)
+            if current.category != notification.category,
+               !isComposingReply,
+               !NotificationPolicyManager.decision(for: current).shouldOpenAutomatically,
+               decision.shouldOpenAutomatically {
+                NotificationCenter.default.post(name: .notificationShouldAutoOpen, object: nil)
+            }
+            return
+        }
+        if let index = queued.firstIndex(where: { $0.id == token }) {
+            guard decision.shouldShow else {
+                queued.remove(at: index)
+                XPCHelperClient.shared.releaseNotification(token: token)
+                replyDrafts.removeValue(forKey: token)
+                return
+            }
+            queued[index].updateContent(from: notification)
+            queued.sort {
+                $0.category.priority == $1.category.priority
+                    ? $0.receivedAt < $1.receivedAt
+                    : $0.category.priority > $1.category.priority
+            }
+            return
+        }
+        // Late AX updates must not bring back a notification already dismissed.
+        guard payload["isUpdate"] != "true", !isDuplicate(notification) else { return }
         guard decision.shouldShow else { return }
 
         notification.isHeld = true
@@ -403,7 +439,9 @@ final class SystemNotificationManager: ObservableObject {
     @discardableResult
     func reply(to notification: SystemNotification, text: String) async -> ReplyOutcome {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return .failed }
+        guard !trimmed.isEmpty, notification.canReply,
+              activeNotification?.id == notification.id,
+              activeNotification?.canReply == true else { return .failed }
 
         if await XPCHelperClient.shared.replyToNotification(
             token: notification.id,
