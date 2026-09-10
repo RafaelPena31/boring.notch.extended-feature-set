@@ -751,5 +751,5 @@ Expected: `0 0` divergence and no pending feature changes. Mark completed plan c
 
 - Removed the broad `withAnimation` transaction from tab navigation. It animated the history view's focus teardown and the replacement Home content together, producing a history-only top-to-bottom movement.
 - The smooth animation is now scoped to the tab selector subtree, so the selection capsule and colors still animate while the main module changes immediately. The selector also respects the macOS Reduce Motion preference.
-- Focused review found no changes to navigation, geometry, hover, gestures or keyboard behavior. The canonical install script passed, and the built and installed executable SHA-256 values both equal `106adcb53560b4d651582cd140127eba5f2cfb21002dec51032502cea1c307d0`.
+- Focused review found no changes to navigation, geometry, hover, gestures or keyboard behavior. The canonical install script passed for published source commit `a4afec66`, and the built and installed executable SHA-256 values both equal `a98e53589ed2ae6b209b698c2f0d562f68dbd27c8f1a0aff77aa2bca50dc16b5`.
 - The automation session could inspect the installed process but could not synthesize the physical-notch hover needed to replay History → Home, so final motion confirmation remains a physical-pointer check.
