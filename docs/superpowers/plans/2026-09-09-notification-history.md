@@ -709,7 +709,7 @@ shasum -a 256 .build/local-install/Build/Products/Release/boringNotch.app/Conten
 
 Expected: identical hashes. Report any unverified real-banner/device interaction honestly; do not present a synthetic preview as native validation.
 
-- [ ] **Commit only feature files and publish to the fork.** Stage the exact paths in this file map, including this completed plan and the notification documentation; do not stage `.superpowers/` or local signing configuration. Use:
+- [x] **Commit only feature files and publish to the fork.** Stage the exact paths in this file map, including this completed plan and the notification documentation; do not stage `.superpowers/` or local signing configuration. Use:
 
 ```bash
 git diff --cached --check
@@ -723,6 +723,7 @@ Expected: `0 0` divergence and no pending feature changes. Mark completed plan c
 
 ## Execution notes — 2026-09-09
 
+- Feature commit `85954662` published to the fork's `main`; local and remote were synchronized after the push. Only the pre-existing `.superpowers/` folder remains untracked.
 - Final installation succeeded through `./scripts/install-local.sh`; app/helper signatures and entitlements passed the script checks. Built and installed executable SHA-256: `161bd8a7d0afd2ea8056ba6f00d3d851276133dc5a9939223a660728256ab865`.
 - Implemented and reviewed the store, capture integration, grouped reading view, navigation, panel restoration and privacy guidance. No test target or new dependency was added.
 - Native checks used four temporary, value-only snapshots from three app identities, not real incoming banners. Confirmed multiple expanded groups, app/saved filters, Save, Remove/Undo, Clear/Undo, full-text scrolling, Read/Back, Escape detail→list→closed, source opening through Finder, and absence of reply/call actions in historical records.
