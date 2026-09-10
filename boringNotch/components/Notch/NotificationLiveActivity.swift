@@ -260,8 +260,8 @@ struct NotificationExpandedView: View {
                             .transition(.opacity)
                     }
                 }
-                // Keep both pinned controls clear even after scrolling.
-                .padding(.trailing, 72)
+                // Keep the pinned dismiss button clear even after scrolling.
+                .padding(.trailing, 36)
                 .frame(maxWidth: contentColumnMaxWidth, alignment: .leading)
             }
             .padding(contentInsets)
@@ -275,25 +275,9 @@ struct NotificationExpandedView: View {
             contentHeight = height
         }
         .overlay(alignment: .topTrailing) {
-            HStack(spacing: 8) {
-                Button {
-                    NotificationCenter.default.post(name: .notificationHistoryRequested, object: nil)
-                } label: {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 28, height: 28)
-                        .background(.white.opacity(0.12), in: Capsule())
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(NotificationScaleButtonStyle())
-                .accessibilityLabel("Notification history")
-                .help("Notification history")
-
-                NotificationDismissButton(notificationID: notification.id)
-            }
-            .padding(.top, contentInsets.top)
-            .padding(.trailing, contentInsets.trailing)
+            NotificationDismissButton(notificationID: notification.id)
+                .padding(.top, contentInsets.top)
+                .padding(.trailing, contentInsets.trailing)
         }
         .id(notification.id)
         .background(NotificationWindowAccessor { window in
@@ -651,7 +635,7 @@ private struct NotificationDismissButton: View {
     }
 }
 
-struct NotificationSourceIcon: View {
+private struct NotificationSourceIcon: View {
     let notification: SystemNotification
     let size: CGFloat
 

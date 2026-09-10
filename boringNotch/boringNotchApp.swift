@@ -16,7 +16,6 @@ import SwiftUI
 struct DynamicNotchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Default(.menubarIcon) var showMenuBarIcon
-    @Default(.notificationsEnabled) var notificationsEnabled
     @Environment(\.openWindow) var openWindow
 
     let updaterController: SPUStandardUpdaterController
@@ -37,11 +36,6 @@ struct DynamicNotchApp: App {
                 }
             }
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
-            Button("Notification History", systemImage: "clock.arrow.circlepath") {
-                NotificationCenter.default.post(name: .notificationHistoryRequested, object: nil)
-            }
-            .keyboardShortcut("n", modifiers: [.command, .shift])
-            .disabled(!notificationsEnabled)
             CheckForUpdatesView(updater: updaterController.updater)
             Divider()
             Button("Restart Boring Notch") {
@@ -420,12 +414,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         do {
                             try await Task.sleep(for: .seconds(3))
                             await MainActor.run {
-                                // Manual history browsing outlives the shortcut's preview.
-                                guard !Task.isCancelled,
-                                      let viewModel,
-                                      viewModel.coordinator.currentView != .notificationHistory
-                                else { return }
-                                viewModel.close()
+                                viewModel?.close()
                             }
                         } catch { }
                     }
@@ -586,11 +575,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
 
             vm.screenUUID = selectedScreen.displayUUID
-            let closedNotchSize = getClosedNotchSize(screenUUID: selectedScreen.displayUUID)
-            vm.closedNotchSize = closedNotchSize
-            if vm.notchState == .closed {
-                vm.notchSize = closedNotchSize
-            }
+            vm.notchSize = getClosedNotchSize(screenUUID: selectedScreen.displayUUID)
 
             if window == nil {
                 window = createBoringNotchWindow(for: selectedScreen, with: vm)

@@ -203,8 +203,7 @@ class BoringViewModel: NSObject, ObservableObject {
             let baseY = frame.maxY - notchSize.height
             let baseX = frame.midX - notchSize.width / 2
             
-            return position.y >= baseY && position.y <= frame.maxY
-                && position.x >= baseX && position.x <= baseX + notchSize.width
+            return position.y >= baseY && position.x >= baseX && position.x <= baseX + notchSize.width
         }
         
         return false
@@ -216,11 +215,6 @@ class BoringViewModel: NSObject, ObservableObject {
         
         // Force music information update when notch is opened
         MusicManager.shared.forceUpdate()
-    }
-
-    func setOpenContentHeight(_ height: CGFloat) {
-        guard notchState == .open else { return }
-        notchSize = CGSize(width: openNotchSize.width, height: height)
     }
 
     func close() {
@@ -237,9 +231,7 @@ class BoringViewModel: NSObject, ObservableObject {
 
         // Set the current view to shelf if it contains files and the user enables openShelfByDefault
         // Otherwise, if the user has not enabled openLastShelfByDefault, set the view to home
-        if coordinator.currentView == .notificationHistory {
-            coordinator.currentView = .home
-        } else if !ShelfStateViewModel.shared.isEmpty && Defaults[.openShelfByDefault] {
+    if !ShelfStateViewModel.shared.isEmpty && Defaults[.openShelfByDefault] {
             coordinator.currentView = .shelf
         } else if !coordinator.openLastTabByDefault {
             coordinator.currentView = .home

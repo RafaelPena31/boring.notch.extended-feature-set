@@ -71,9 +71,7 @@ struct ShelfView: View {
                     .padding()
             }
             .transaction { transaction in
-                if !transaction.disablesAnimations {
-                    transaction.animation = vm.animation
-                }
+                transaction.animation = vm.animation
             }
             .contentShape(Rectangle())
             .onTapGesture { selection.clear() }

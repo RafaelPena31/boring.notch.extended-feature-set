@@ -8,6 +8,7 @@ import Defaults
 import SwiftUI
 
 struct ClipboardView: View {
+    @EnvironmentObject var vm: BoringViewModel
     @StateObject private var store = ClipboardStore.shared
     @Default(.clipboardHistoryEnabled) private var isEnabled
 
@@ -21,6 +22,7 @@ struct ClipboardView: View {
 
     var body: some View {
         panel
+            .transaction { $0.animation = vm.animation }
     }
 
     private var panel: some View {

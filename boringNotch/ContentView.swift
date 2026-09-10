@@ -15,7 +15,6 @@ import SwiftUIIntrospect
 
 @MainActor
 struct ContentView: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject var webcamManager = WebcamManager.shared
 
@@ -153,7 +152,6 @@ struct ContentView: View {
 
     private var usesCompactPlayer: Bool {
         vm.notchState == .open
-            && !historyActive
             && musicPlayerLayout == .compact
             && notificationManager.activeNotification == nil
     }
@@ -168,19 +166,7 @@ struct ContentView: View {
     }
 
     private var expandedNotificationActive: Bool {
-        vm.notchState == .open && !historyActive && notificationManager.activeNotification != nil
-    }
-
-    private var historyActive: Bool {
-        vm.notchState == .open && coordinator.currentView == .notificationHistory
-    }
-
-    private var historyHeaderHeight: CGFloat {
-        max(24, vm.effectiveClosedNotchHeight, vm.physicalNotchExclusionHeight)
-    }
-
-    private var historyContentHeight: CGFloat {
-        max(0, notificationHistoryNotchHeight - historyHeaderHeight - 8 - openSecondaryPadding)
+        vm.notchState == .open && notificationManager.activeNotification != nil
     }
 
     private var notificationHeaderHeight: CGFloat {
@@ -193,7 +179,6 @@ struct ContentView: View {
 
     private var openLayoutHeight: CGFloat? {
         guard vm.notchState == .open else { return nil }
-        if historyActive { return notificationHistoryNotchHeight }
         return usesCompactPlayer || usesAutomaticNotificationPanel
             ? nil
             : vm.notchSize.height
@@ -416,11 +401,7 @@ struct ContentView: View {
                     )
                 
                 mainLayout
-                    .animation(
-                        reduceMotion ? nil : .easeInOut(duration: notchResizeAnimationDuration)
-                    ) { content in
-                        content.frame(height: openLayoutHeight, alignment: .top)
-                    }
+                    .frame(height: openLayoutHeight, alignment: .top)
                     .conditionalModifier(true) { view in
                         let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
                         let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
@@ -435,8 +416,11 @@ struct ContentView: View {
                             exclusionHeight: vm.physicalNotchExclusionHeight
                         )
                     )
+                    .onHover { hovering in
+                        handleHover(hovering)
+                    }
                     .onTapGesture {
-                        guard !historyActive, !isNotificationQuickActionHovered else { return }
+                        guard !isNotificationQuickActionHovered else { return }
                         if notificationActivityActive,
                            let notification = notificationManager.activeNotification {
                             Task { _ = await notificationManager.open(notification) }
@@ -445,21 +429,17 @@ struct ContentView: View {
                             doOpen()
                         }
                     }
-                    // Disable gestures in place so navigation keeps the same notch view.
-                    .panGesture(
-                        direction: .down,
-                        isEnabled: Defaults[.enableGestures] && !expandedNotificationActive && !historyActive
-                    ) { translation, phase in
-                        handleDownGesture(translation: translation, phase: phase)
+                    .conditionalModifier(Defaults[.enableGestures] && !expandedNotificationActive) { view in
+                        view
+                            .panGesture(direction: .down) { translation, phase in
+                                handleDownGesture(translation: translation, phase: phase)
+                            }
                     }
-                    .panGesture(
-                        direction: .up,
-                        isEnabled: Defaults[.closeGestureEnabled] && Defaults[.enableGestures] && !expandedNotificationActive && !historyActive
-                    ) { translation, phase in
-                        handleUpGesture(translation: translation, phase: phase)
-                    }
-                    .onHover { hovering in
-                        handleHover(hovering)
+                    .conditionalModifier(Defaults[.closeGestureEnabled] && Defaults[.enableGestures] && !expandedNotificationActive) { view in
+                        view
+                            .panGesture(direction: .up) { translation, phase in
+                                handleUpGesture(translation: translation, phase: phase)
+                            }
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .sharingDidFinish)) { _ in
                         if vm.notchState == .open && !isHovering && !vm.isBatteryPopoverActive {
@@ -478,11 +458,7 @@ struct ContentView: View {
                     .onReceive(NotificationCenter.default.publisher(for: .notificationShouldAutoOpen)) { _ in
                         handleAutomaticNotificationOpening()
                     }
-                    .onReceive(NotificationCenter.default.publisher(for: .notificationHistoryRequested)) { _ in
-                        openNotificationHistory()
-                    }
                     .onReceive(NotificationCenter.default.publisher(for: .notificationPresentationEnded)) { _ in
-                        guard !historyActive else { return }
                         hoverTask?.cancel()
                         restoreAfterAutomaticNotification()
                     }
@@ -502,17 +478,6 @@ struct ContentView: View {
                             }
                         }
                     }
-                    .onChange(of: historyActive) { _, active in
-                        hoverTask?.cancel()
-                        vm.setOpenContentHeight(
-                            active ? notificationHistoryNotchHeight : openNotchSize.height
-                        )
-                        if active {
-                            gestureProgress = .zero
-                            clearAutomaticNotificationRestoration()
-                            notificationManager.resumeExpiry(after: 3)
-                        }
-                    }
                     .onChange(of: vm.isBatteryPopoverActive) {
                         if !vm.isBatteryPopoverActive && !isHovering && vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
                             hoverTask?.cancel()
@@ -529,10 +494,6 @@ struct ContentView: View {
                     }
                     .sensoryFeedback(.alignment, trigger: haptics)
                     .contextMenu {
-                        Button("Notification History", systemImage: "clock.arrow.circlepath") {
-                            openNotificationHistory()
-                        }
-                        .disabled(!Defaults[.notificationsEnabled])
                         Button("Settings") {
                             DispatchQueue.main.async {
                                 SettingsWindowController.shared.showWindow()
@@ -553,18 +514,7 @@ struct ContentView: View {
             }
         }
         .padding(.bottom, 8)
-        .frame(
-            maxWidth: windowSize.width,
-            maxHeight: historyActive ? notificationHistoryWindowHeight : windowSize.height,
-            alignment: .top
-        )
-        .background {
-            NotificationHistoryPanelHost(
-                isActive: historyActive,
-                reduceMotion: reduceMotion
-            )
-                .frame(width: 0, height: 0)
-        }
+        .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
         .compositingGroup()
         .scaleEffect(
             x: gestureScale,
@@ -646,7 +596,7 @@ struct ContentView: View {
                               .frame(alignment: .center)
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
                           BoringFaceAnimation()
-                       } else if vm.notchState == .open, !historyActive,
+                       } else if vm.notchState == .open,
                                  (notificationManager.activeNotification != nil || usesCompactPlayer) {
                            Rectangle()
                                .fill(.clear)
@@ -658,7 +608,7 @@ struct ContentView: View {
                                )
                        } else if vm.notchState == .open {
                            BoringHeader()
-                               .frame(height: historyActive ? historyHeaderHeight : max(24, vm.effectiveClosedNotchHeight))
+                               .frame(height: max(24, vm.effectiveClosedNotchHeight))
                                .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
                        } else {
                            Rectangle().fill(.clear).frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
@@ -719,8 +669,7 @@ struct ContentView: View {
               .zIndex(2)
             if vm.notchState == .open {
                 VStack {
-                    if let notification = notificationManager.activeNotification,
-                       !historyActive {
+                    if let notification = notificationManager.activeNotification {
                         NotificationExpandedView(
                             notification: notification,
                             compactPresentation: usesAutomaticNotificationPanel,
@@ -740,25 +689,15 @@ struct ContentView: View {
                         CompactHomeView(albumArtNamespace: albumArtNamespace)
                             .frame(width: 336)
                     } else {
-                        Group {
-                            switch coordinator.currentView {
-                            case .home:
-                                NotchHomeView(albumArtNamespace: albumArtNamespace)
-                            case .shelf:
-                                ShelfView()
-                            case .clipboard:
-                                ClipboardView()
-                            case .pomodoro:
-                                PomodoroView()
-                            case .notificationHistory:
-                                NotificationHistoryView(
-                                    maximumHeight: historyContentHeight
-                                )
-                            }
-                        }
-                        .transaction(value: coordinator.currentView) { transaction in
-                            transaction.animation = nil
-                            transaction.disablesAnimations = true
+                        switch coordinator.currentView {
+                        case .home:
+                            NotchHomeView(albumArtNamespace: albumArtNamespace)
+                        case .shelf:
+                            ShelfView()
+                        case .clipboard:
+                            ClipboardView()
+                        case .pomodoro:
+                            PomodoroView()
                         }
                     }
                 }
@@ -1162,15 +1101,11 @@ struct ContentView: View {
         if coordinator.firstLaunch { return }
         hoverTask?.cancel()
 
-        if !historyActive {
-            if hovering {
-                notificationManager.holdActive()
-            } else {
-                notificationManager.resumeExpiry(after: 3)
-            }
-        }
-        if !hovering {
+        if hovering {
+            notificationManager.holdActive()
+        } else {
             isNotificationQuickActionHovered = false
+            notificationManager.resumeExpiry(after: 3)
         }
         
         if hovering {
@@ -1202,13 +1137,7 @@ struct ContentView: View {
             }
         } else {
             hoverTask = Task {
-                // Resizing history can end a SwiftUI tracking region with the
-                // pointer still inside the notch. Wait for an actual exit; a
-                // subsequent hover entry or navigation cancels this task.
-                repeat {
-                    try? await Task.sleep(for: .milliseconds(100))
-                    guard !Task.isCancelled else { return }
-                } while historyActive && vm.isMouseHovering()
+                try? await Task.sleep(for: .milliseconds(100))
                 guard !Task.isCancelled else { return }
                 
                 await MainActor.run {
@@ -1224,24 +1153,7 @@ struct ContentView: View {
         }
     }
 
-    private func clearAutomaticNotificationRestoration() {
-        automaticNotificationPanelToken = nil
-        notificationPresentationWasOpen = nil
-        notificationPresentationView = nil
-    }
-
-    private func openNotificationHistory() {
-        guard Defaults[.notificationsEnabled],
-              vm.screenUUID == nil || vm.screenUUID == coordinator.selectedScreenUUID
-        else { return }
-        hoverTask?.cancel()
-        clearAutomaticNotificationRestoration()
-        coordinator.currentView = .notificationHistory
-        if vm.notchState == .closed { doOpen() }
-    }
-
     private func handleAutomaticNotificationOpening() {
-        guard !historyActive else { return }
         guard let notification = notificationManager.activeNotification,
               vm.screenUUID == nil || vm.screenUUID == coordinator.selectedScreenUUID
         else { return }
@@ -1259,7 +1171,6 @@ struct ContentView: View {
     }
 
     private func restoreAfterAutomaticNotification() {
-        guard !historyActive else { return }
         guard let wasOpen = notificationPresentationWasOpen else { return }
         if let previousView = notificationPresentationView {
             coordinator.currentView = previousView

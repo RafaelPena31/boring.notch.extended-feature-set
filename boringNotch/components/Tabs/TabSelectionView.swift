@@ -16,11 +16,9 @@ struct TabModel: Identifiable {
 }
 
 struct TabSelectionView: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @Default(.boringShelf) var shelfEnabled
     @Default(.clipboardHistoryEnabled) var clipboardEnabled
-    @Default(.notificationsEnabled) var notificationsEnabled
     @Namespace var animation
 
     private var tabs: [TabModel] {
@@ -32,32 +30,34 @@ struct TabSelectionView: View {
             result.append(TabModel(label: "Clipboard", icon: "clipboard.fill", view: .clipboard))
         }
         result.append(TabModel(label: "Pomodoro", icon: "timer", view: .pomodoro))
-        if notificationsEnabled {
-            result.append(TabModel(label: "Notifications", icon: "bell.badge", view: .notificationHistory))
-        }
         return result
     }
 
     var body: some View {
         HStack(spacing: 0) {
             ForEach(tabs) { tab in
-                    TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view,
-                              horizontalPadding: tabs.count >= 5 ? 8 : 15) {
-                        coordinator.currentView = tab.view
+                    TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view) {
+                        withAnimation(.smooth) {
+                            coordinator.currentView = tab.view
+                        }
                     }
                     .frame(height: 26)
                     .foregroundStyle(tab.view == coordinator.currentView ? .white : .gray)
                     .background {
                         if tab.view == coordinator.currentView {
                             Capsule()
-                                .fill(Color(nsColor: .secondarySystemFill))
+                                .fill(coordinator.currentView == tab.view ? Color(nsColor: .secondarySystemFill) : Color.clear)
                                 .matchedGeometryEffect(id: "capsule", in: animation)
+                        } else {
+                            Capsule()
+                                .fill(coordinator.currentView == tab.view ? Color(nsColor: .secondarySystemFill) : Color.clear)
+                                .matchedGeometryEffect(id: "capsule", in: animation)
+                                .hidden()
                         }
                     }
             }
         }
         .clipShape(Capsule())
-        .animation(reduceMotion ? nil : .smooth, value: coordinator.currentView)
     }
 }
 

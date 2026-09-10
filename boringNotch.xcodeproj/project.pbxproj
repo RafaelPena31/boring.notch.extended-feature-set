@@ -366,7 +366,6 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		112FB72F2CCF12CC0015238C /* private */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = private; sourceTree = "<group>"; };
 		CB01A1002F0000010000CB01 /* Clipboard */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Clipboard; sourceTree = "<group>"; };
-		AA0900010000000000000001 /* NotificationHistory */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = NotificationHistory; sourceTree = "<group>"; };
 		11F748502EC9AABA00F841DB /* BoringNotchXPCHelper */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (11F7485C2EC9AABA00F841DB /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = BoringNotchXPCHelper; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
@@ -545,7 +544,6 @@
 				B1C448992C97375A001F0858 /* Tips */,
 				14C08BB72C8DE49E000F8AA0 /* Calendar */,
 				CB01A1002F0000010000CB01 /* Clipboard */,
-				AA0900010000000000000001 /* NotificationHistory */,
 				9A987A042C73CA66005CA465 /* Shelf */,
 				149E0B982C737D26006418B1 /* Webcam */,
 				B18654312C6F45AE000B926A /* Live activities */,
@@ -883,7 +881,6 @@
 			fileSystemSynchronizedGroups = (
 				112FB72F2CCF12CC0015238C /* private */,
 				CB01A1002F0000010000CB01 /* Clipboard */,
-				AA0900010000000000000001 /* NotificationHistory */,
 			);
 			name = boringNotch;
 			packageProductDependencies = (
