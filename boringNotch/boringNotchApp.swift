@@ -420,7 +420,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                         do {
                             try await Task.sleep(for: .seconds(3))
                             await MainActor.run {
-                                viewModel?.close()
+                                // Manual history browsing outlives the shortcut's preview.
+                                guard !Task.isCancelled,
+                                      let viewModel,
+                                      viewModel.coordinator.currentView != .notificationHistory
+                                else { return }
+                                viewModel.close()
                             }
                         } catch { }
                     }

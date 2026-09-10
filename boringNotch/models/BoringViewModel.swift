@@ -203,7 +203,8 @@ class BoringViewModel: NSObject, ObservableObject {
             let baseY = frame.maxY - notchSize.height
             let baseX = frame.midX - notchSize.width / 2
             
-            return position.y >= baseY && position.x >= baseX && position.x <= baseX + notchSize.width
+            return position.y >= baseY && position.y <= frame.maxY
+                && position.x >= baseX && position.x <= baseX + notchSize.width
         }
         
         return false

@@ -432,9 +432,6 @@ struct ContentView: View {
                             exclusionHeight: vm.physicalNotchExclusionHeight
                         )
                     )
-                    .onHover { hovering in
-                        handleHover(hovering)
-                    }
                     .onTapGesture {
                         guard !historyActive, !isNotificationQuickActionHovered else { return }
                         if notificationActivityActive,
@@ -445,17 +442,21 @@ struct ContentView: View {
                             doOpen()
                         }
                     }
-                    .conditionalModifier(Defaults[.enableGestures] && !expandedNotificationActive && !historyActive) { view in
-                        view
-                            .panGesture(direction: .down) { translation, phase in
-                                handleDownGesture(translation: translation, phase: phase)
-                            }
+                    // Disable gestures in place so navigation keeps the same notch view.
+                    .panGesture(
+                        direction: .down,
+                        isEnabled: Defaults[.enableGestures] && !expandedNotificationActive && !historyActive
+                    ) { translation, phase in
+                        handleDownGesture(translation: translation, phase: phase)
                     }
-                    .conditionalModifier(Defaults[.closeGestureEnabled] && Defaults[.enableGestures] && !expandedNotificationActive && !historyActive) { view in
-                        view
-                            .panGesture(direction: .up) { translation, phase in
-                                handleUpGesture(translation: translation, phase: phase)
-                            }
+                    .panGesture(
+                        direction: .up,
+                        isEnabled: Defaults[.closeGestureEnabled] && Defaults[.enableGestures] && !expandedNotificationActive && !historyActive
+                    ) { translation, phase in
+                        handleUpGesture(translation: translation, phase: phase)
+                    }
+                    .onHover { hovering in
+                        handleHover(hovering)
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .sharingDidFinish)) { _ in
                         if vm.notchState == .open && !isHovering && !vm.isBatteryPopoverActive {
@@ -478,6 +479,7 @@ struct ContentView: View {
                         openNotificationHistory()
                     }
                     .onReceive(NotificationCenter.default.publisher(for: .notificationPresentationEnded)) { _ in
+                        guard !historyActive else { return }
                         hoverTask?.cancel()
                         restoreAfterAutomaticNotification()
                     }
@@ -498,9 +500,10 @@ struct ContentView: View {
                         }
                     }
                     .onChange(of: historyActive) { _, active in
+                        hoverTask?.cancel()
                         if active {
+                            gestureProgress = .zero
                             clearAutomaticNotificationRestoration()
-                            hoverTask?.cancel()
                             notificationManager.resumeExpiry(after: 3)
                             vm.setOpenContentHeight(historyPanelHeight)
                         } else {
@@ -641,10 +644,7 @@ struct ContentView: View {
                               .frame(alignment: .center)
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
                           BoringFaceAnimation()
-                       } else if historyActive {
-                           BoringHeader()
-                               .frame(height: historyHeaderHeight)
-                       } else if vm.notchState == .open,
+                       } else if vm.notchState == .open, !historyActive,
                                  (notificationManager.activeNotification != nil || usesCompactPlayer) {
                            Rectangle()
                                .fill(.clear)
@@ -656,7 +656,7 @@ struct ContentView: View {
                                )
                        } else if vm.notchState == .open {
                            BoringHeader()
-                               .frame(height: max(24, vm.effectiveClosedNotchHeight))
+                               .frame(height: historyActive ? historyHeaderHeight : max(24, vm.effectiveClosedNotchHeight))
                                .opacity(gestureProgress != 0 ? 1.0 - min(abs(gestureProgress) * 0.1, 0.3) : 1.0)
                        } else {
                            Rectangle().fill(.clear).frame(width: vm.closedNotchSize.width - 20, height: vm.effectiveClosedNotchHeight)
@@ -1196,7 +1196,13 @@ struct ContentView: View {
             }
         } else {
             hoverTask = Task {
-                try? await Task.sleep(for: .milliseconds(100))
+                // Resizing history can end a SwiftUI tracking region with the
+                // pointer still inside the notch. Wait for an actual exit; a
+                // subsequent hover entry or navigation cancels this task.
+                repeat {
+                    try? await Task.sleep(for: .milliseconds(100))
+                    guard !Task.isCancelled else { return }
+                } while historyActive && vm.isMouseHovering()
                 guard !Task.isCancelled else { return }
                 
                 await MainActor.run {
