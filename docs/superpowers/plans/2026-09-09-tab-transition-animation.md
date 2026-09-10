@@ -200,7 +200,7 @@ On the installed app:
 
 Ask the reviewer to inspect the working diff for matched-geometry uniqueness, stable tab widths, transaction scope, retained local Clipboard feedback, matching geometry timing, Reduce Motion and rapid-interruption handling. Resolve every critical or important finding.
 
-- [ ] **Step 5: Commit and publish**
+- [x] **Step 5: Commit and publish**
 
 Stage only the implementation files and this plan; leave `.superpowers/` untracked:
 
@@ -227,4 +227,4 @@ Expected: divergence is `0 0`; only `.superpowers/` remains untracked.
 - SHA-256: `71d43947f2a66ff4755ced19aef301a140b9e955c3cd55feef4a14e7cdca1de8` for both the Release artifact and `/Applications/boringNotch.app` executable.
 - Existing warning status: no build warnings were reported by the canonical installer; `git diff --check` passed. The only pre-existing worktree item is untracked `.superpowers/`.
 - Final integrated review found no Critical or Important issues. The Shelf module-switch suppression fix was included in the reviewed final source.
-- Physical-notch visual behavior could not be observed directly in this environment; Task 4, Step 3 remains pending user confirmation. Installed-app signature verification passed. Task 4, Step 5 remains pending publication.
+- Physical-notch visual behavior could not be observed directly in this environment; Task 4, Step 3 remains pending user confirmation. Installed-app signature verification passed. Task 4, Step 5 was completed by publishing `main` through commit `8e646c66`.
