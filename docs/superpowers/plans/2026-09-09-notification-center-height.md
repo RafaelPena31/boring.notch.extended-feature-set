@@ -16,6 +16,7 @@
 - Modify `boringNotch/models/BoringViewModel.swift`: open-state height update used by rendering and pointer containment.
 - Modify `boringNotch/components/NotificationHistory/NotificationHistoryPanelHost.swift`: resize the same panel with a top-fixed frame and keep keyboard ownership.
 - Modify `boringNotch/ContentView.swift`: select the history height, scope geometry animation, and allocate the larger history viewport.
+- Modify `boringNotch/boringNotchApp.swift`: preserve the open pointer-containment size when moving between displays.
 - Modify `docs/superpowers/plans/2026-09-09-notification-center-height.md`: record completed verification evidence.
 
 ### Task 1: Define fixed geometry and view-model state
@@ -24,7 +25,7 @@
 - Modify: `boringNotch/sizing/matters.swift:15-18`
 - Modify: `boringNotch/models/BoringViewModel.swift:213-228`
 
-- [ ] **Step 1: Add the fixed Notification Center dimensions**
+- [x] **Step 1: Add the fixed Notification Center dimensions**
 
 Add these constants after `windowSize`:
 
@@ -35,7 +36,7 @@ let notificationHistoryWindowHeight: CGFloat = notificationHistoryNotchHeight + 
 
 Keep `openNotchSize.height == 190` and `windowSize.height == 210` unchanged for every other tab.
 
-- [ ] **Step 2: Restore a narrow open-height API**
+- [x] **Step 2: Restore a narrow open-height API**
 
 Add this method between `open()` and `close()`:
 
@@ -48,7 +49,7 @@ func setOpenContentHeight(_ height: CGFloat) {
 
 This state must describe the visible black silhouette so `isMouseHovering()` includes the complete 340-point history area.
 
-- [ ] **Step 3: Check the focused diff**
+- [x] **Step 3: Check the focused diff**
 
 Run:
 
@@ -66,7 +67,7 @@ Expected: no whitespace errors; only the two constants and one guarded setter ar
 - Modify: `boringNotch/ContentView.swift:15-200`
 - Modify: `boringNotch/ContentView.swift:385-565`
 
-- [ ] **Step 1: Pass the geometry target and Reduce Motion preference to the AppKit host**
+- [x] **Step 1: Pass the geometry target and Reduce Motion preference to the AppKit host**
 
 Give `NotificationHistoryPanelHost` these inputs:
 
@@ -85,7 +86,7 @@ private weak var panel: BoringNotchSkyLightWindow?
 
 The normal target is always the existing `windowSize.height` constant. Do not capture an in-flight frame height; that could make a rapid History → Home → History sequence restore to an intermediate size.
 
-- [ ] **Step 2: Add top-anchored resizing without creating a window**
+- [x] **Step 2: Add top-anchored resizing without creating a window**
 
 In `apply()`, keep the current panel reference, resize to `notificationHistoryWindowHeight` when history is active or `windowSize.height` otherwise, and mirror `isActive` to `wantsKeyForHistory`. When the representable moves to another panel or is dismantled, restore the old panel to `windowSize.height`, release keyboard ownership and clear the reference.
 
@@ -113,7 +114,9 @@ private func resize(_ panel: NSWindow, height: CGFloat, animated: Bool) {
 
 Import `QuartzCore` for `CAMediaTimingFunction`. `viewDidMoveToWindow`, `updateNSView` and `dismantleNSView` must continue to reuse the representable's existing panel; none may instantiate an `NSWindow`.
 
-- [ ] **Step 3: Derive the taller history viewport in `ContentView`**
+The implementation also assigns a generation to each resize request. Completion handlers from superseded animations are ignored, while the current request reconciles its final height. This prevents a stale animation from interrupting rapid tab changes or a Reduce Motion update.
+
+- [x] **Step 3: Derive the taller history viewport in `ContentView`**
 
 Add:
 
@@ -137,7 +140,7 @@ private var openLayoutHeight: CGFloat? {
 }
 ```
 
-- [ ] **Step 4: Keep content replacement outside the height animation**
+- [x] **Step 4: Keep content replacement outside the height animation**
 
 Update the existing `historyActive` observer:
 
@@ -162,7 +165,7 @@ mainLayout
     }
 ```
 
-- [ ] **Step 5: Allocate the matching root and native panel height**
+- [x] **Step 5: Allocate the matching root and native panel height**
 
 Change the root maximum height and host call to:
 
@@ -183,7 +186,7 @@ Change the root maximum height and host call to:
 
 Expected: the native window grows down from an unchanged `frame.maxY`; no second panel, overlay window or dynamic content measurement is introduced.
 
-- [ ] **Step 6: Review the geometry paths**
+- [x] **Step 6: Review the geometry paths**
 
 Run:
 
@@ -200,7 +203,7 @@ Expected: one fixed 340-point history target; the regular 190/210 sizes remain i
 **Files:**
 - Modify: `docs/superpowers/plans/2026-09-09-notification-center-height.md`
 
-- [ ] **Step 1: Build and install through the only approved process**
+- [x] **Step 1: Build and install through the only approved process**
 
 Run from the repository root:
 
@@ -221,11 +224,11 @@ Using the installed app, verify:
 5. Repeated quick tab changes end at the latest tab's correct height.
 6. Pointer exit, Escape and the close button continue to dismiss normally.
 
-- [ ] **Step 3: Request focused review**
+- [x] **Step 3: Request focused review**
 
 Ask the reviewer to inspect the working diff for top-edge preservation, key-window release, Reduce Motion behavior, pointer containment, rapid selection, display movement, and accidental reintroduction of a global content animation. Resolve every critical or important finding before committing.
 
-- [ ] **Step 4: Confirm product/install identity**
+- [x] **Step 4: Confirm product/install identity**
 
 Run:
 
@@ -235,7 +238,7 @@ shasum -a 256 .build/local-install/Build/Products/Release/boringNotch.app/Conten
 
 Expected: both SHA-256 values are identical. Record the hash and any physical-pointer limitation in this plan.
 
-- [ ] **Step 5: Commit implementation and publish `main`**
+- [x] **Step 5: Commit implementation and publish `main`**
 
 Stage only the implementation files and this plan; leave `.superpowers/` untracked:
 
@@ -253,3 +256,11 @@ git status --short
 ```
 
 Expected: divergence is `0 0`; only `.superpowers/` remains untracked.
+
+## Execution notes
+
+- Implementation commit: `2581c6a7` (`feat: expand notification center vertically`).
+- Canonical `./scripts/install-local.sh` build and installation completed with exit 0 for that commit.
+- Built and installed executable SHA-256: `6dcddd999196b0856c3303b23be1002383418cb02c91fac151470cfcd634e4d7`.
+- Focused static review found no remaining critical or important issues after fixing animation-generation and display-change races.
+- Physical-notch pointer and motion checks remain intentionally unchecked above because they require direct observation on the Mac display.
