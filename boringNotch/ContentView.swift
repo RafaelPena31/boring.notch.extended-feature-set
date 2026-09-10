@@ -738,19 +738,25 @@ struct ContentView: View {
                         CompactHomeView(albumArtNamespace: albumArtNamespace)
                             .frame(width: 336)
                     } else {
-                        switch coordinator.currentView {
-                        case .home:
-                            NotchHomeView(albumArtNamespace: albumArtNamespace)
-                        case .shelf:
-                            ShelfView()
-                        case .clipboard:
-                            ClipboardView()
-                        case .pomodoro:
-                            PomodoroView()
-                        case .notificationHistory:
-                            NotificationHistoryView(
-                                maximumHeight: historyContentHeight
-                            )
+                        Group {
+                            switch coordinator.currentView {
+                            case .home:
+                                NotchHomeView(albumArtNamespace: albumArtNamespace)
+                            case .shelf:
+                                ShelfView()
+                            case .clipboard:
+                                ClipboardView()
+                            case .pomodoro:
+                                PomodoroView()
+                            case .notificationHistory:
+                                NotificationHistoryView(
+                                    maximumHeight: historyContentHeight
+                                )
+                            }
+                        }
+                        .transaction(value: coordinator.currentView) { transaction in
+                            transaction.animation = nil
+                            transaction.disablesAnimations = true
                         }
                     }
                 }
