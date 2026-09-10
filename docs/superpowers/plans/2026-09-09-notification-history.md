@@ -41,7 +41,7 @@ Modify:
 
 ### Task 1: Value Snapshots and Bounded Store
 
-- [ ] **Add the snapshot and group types.** Keep no AX references, native actions, images or persistence conformance. Use this model in `NotificationHistoryItem.swift`:
+- [x] **Add the snapshot and group types.** Keep no AX references, native actions, images or persistence conformance. Use this model in `NotificationHistoryItem.swift`:
 
 ```swift
 import Foundation
@@ -100,7 +100,7 @@ struct NotificationHistoryGroup: Identifiable {
 }
 ```
 
-- [ ] **Implement the memory store in `NotificationHistoryStore.swift`.** Keep original arrival times, update without reordering, and share one 200-record limit across Recent and Saved:
+- [x] **Implement the memory store in `NotificationHistoryStore.swift`.** Keep original arrival times, update without reordering, and share one 200-record limit across Recent and Saved:
 
 ```swift
 import Combine
@@ -200,7 +200,7 @@ final class NotificationHistoryStore: ObservableObject {
 }
 ```
 
-- [ ] **Register the folder once in Xcode.** Follow the existing Clipboard synchronized-folder pattern, not the XPC helper target. Add this unused ID to `PBXFileSystemSynchronizedRootGroup`, the `components` group's children, and the `boringNotch` target's `fileSystemSynchronizedGroups`:
+- [x] **Register the folder once in Xcode.** Follow the existing Clipboard synchronized-folder pattern, not the XPC helper target. Add this unused ID to `PBXFileSystemSynchronizedRootGroup`, the `components` group's children, and the `boringNotch` target's `fileSystemSynchronizedGroups`:
 
 ```text
 AA0900010000000000000001 /* NotificationHistory */ = {
@@ -218,7 +218,7 @@ Use `AA0900010000000000000001` in all three locations. Verify it is unused with 
 
 **File:** `boringNotch/managers/SystemNotificationManager.swift`.
 
-- [ ] **Use historical text as a fallback when reconstructing an update.** After resolving the active/queued `existing`, add a history lookup. Preserve metadata and timestamp through the snapshot type, not a new arrival. The parser's title/subtitle/body fallback becomes:
+- [x] **Use historical text as a fallback when reconstructing an update.** After resolving the active/queued `existing`, add a history lookup. Preserve metadata and timestamp through the snapshot type, not a new arrival. The parser's title/subtitle/body fallback becomes:
 
 ```swift
 let history = NotificationHistoryStore.shared
@@ -238,7 +238,7 @@ let appName = value("appName") ?? historical?.appName
 
 Use a single `historical` declaration in the final method.
 
-- [ ] **Feed snapshots at the three acceptance branches.** Existing active/queued branches call `record(notification, updateOnly: true)` after reconstruction, including when visibility changed so stored content is pruned. For a historical-only late update, record with `updateOnly: true` and return without holding or enqueueing it. For a genuinely new accepted nonduplicate banner, call `record(notification, updateOnly: false)` immediately before the existing `holdNotification` call:
+- [x] **Feed snapshots at the three acceptance branches.** Existing active/queued branches call `record(notification, updateOnly: true)` after reconstruction, including when visibility changed so stored content is pruned. For a historical-only late update, record with `updateOnly: true` and return without holding or enqueueing it. For a genuinely new accepted nonduplicate banner, call `record(notification, updateOnly: false)` immediately before the existing `holdNotification` call:
 
 ```swift
 // After handling matching active/queued entries, before accepting a new one:
@@ -254,9 +254,9 @@ XPCHelperClient.shared.holdNotification(token: notification.id)
 
 Do not use unconditional insertion in the active/queued update paths: deleting an item from history while its native banner is alive must not recreate it on enrichment. Keep the existing short-window duplicate check and live queue priorities.
 
-- [ ] **Clear session data only at the approved boundaries.** Add `NotificationHistoryStore.shared.reset()` to `stop()` (used on disable/termination). Do not add it to `dismissActive`, `markExpired`, `handleHelperDisconnect`, or the shared live-queue cleanup method.
+- [x] **Clear session data only at the approved boundaries.** Add `NotificationHistoryStore.shared.reset()` to `stop()` (used on disable/termination). Do not add it to `dismissActive`, `markExpired`, `handleHelperDisconnect`, or the shared live-queue cleanup method.
 
-- [ ] **Add a history-only open method.** It must not call `open(_:)`, which dismisses the active item, and must not send a stale history token to native action execution:
+- [x] **Add a history-only open method.** It must not call `open(_:)`, which dismisses the active item, and must not send a stale history token to native action execution:
 
 ```swift
 func openHistoricalSource(_ item: NotificationHistoryItem) async -> Bool {
@@ -275,9 +275,9 @@ func openHistoricalSource(_ item: NotificationHistoryItem) async -> Bool {
 
 **Files:** `NotificationHistoryView.swift`; existing `NotificationLiveActivity.swift`.
 
-- [ ] **Expose only the reusable icon.** Change `private struct NotificationSourceIcon` to `struct NotificationSourceIcon`; leave live action, avatar and dismiss ownership untouched.
+- [x] **Expose only the reusable icon.** Change `private struct NotificationSourceIcon` to `struct NotificationSourceIcon`; leave live action, avatar and dismiss ownership untouched.
 
-- [ ] **Create the history view with stable identity.** Use a non-lazy bounded VStack for reliable intrinsic measurement at 200 records, a single vertical ScrollView, and no `.id(items)`/`.id(activeNotification)` reset. The view's complete state contract is:
+- [x] **Create the history view with stable identity.** Use a non-lazy bounded VStack for reliable intrinsic measurement at 200 records, a single vertical ScrollView, and no `.id(items)`/`.id(activeNotification)` reset. The view's complete state contract is:
 
 ```swift
 @ObservedObject private var store = NotificationHistoryStore.shared
@@ -317,7 +317,7 @@ private func openSource(_ item: NotificationHistoryItem) {
 
 Import `SwiftUI`. Add `selectInitialGroup()` on appear and after the first group becomes available. Subsequent arrivals must not change `expanded`, `detailID`, or list identity. If filtering/removal hides the selected detail, return to the list; if an app filter no longer exists, reset it to All apps.
 
-- [ ] **Implement independent content and utility controls.** Reuse this complete row builder inside the grouped view; use the same row in detail with a separate Back button, without nesting one button inside another:
+- [x] **Implement independent content and utility controls.** Reuse this complete row builder inside the grouped view; use the same row in detail with a separate Back button, without nesting one button inside another:
 
 ```swift
 private func historyRow(_ item: NotificationHistoryItem) -> some View {
@@ -361,7 +361,7 @@ private func historyRow(_ item: NotificationHistoryItem) -> some View {
 }
 ```
 
-- [ ] **Compose the controls and grouped scroller.** Implement the view body with these builders; keep 8-point section spacing and symmetric 12-point internal horizontal insets. Display no reply or call controls:
+- [x] **Compose the controls and grouped scroller.** Implement the view body with these builders; keep 8-point section spacing and symmetric 12-point internal horizontal insets. Display no reply or call controls:
 
 ```swift
 private var filters: some View {
@@ -489,7 +489,7 @@ The 32 points reserve two outer 8-point VStack gaps plus 16 points of vertical p
 
 ### Task 4: Manual Navigation and Native Panel Geometry
 
-- [ ] **Add navigation availability.** In `boringNotch/enums/generic.swift`, add `.notificationHistory` to `NotchViews`. In `BoringViewCoordinator.normalizeCurrentViewIfNeeded()`, return to `.home` when this view is selected and notifications are disabled. Observe `.notificationsEnabled` alongside the existing tab-availability publishers:
+- [x] **Add navigation availability.** In `boringNotch/enums/generic.swift`, add `.notificationHistory` to `NotchViews`. In `BoringViewCoordinator.normalizeCurrentViewIfNeeded()`, return to `.home` when this view is selected and notifications are disabled. Observe `.notificationsEnabled` alongside the existing tab-availability publishers:
 
 ```swift
 case .notificationHistory:
@@ -506,9 +506,9 @@ Defaults.publisher(.notificationsEnabled)
 
 Add `@Default(.notificationsEnabled) var notificationsEnabled` to `TabSelectionView`, then append `TabModel(label: "Notifications", icon: "bell.badge", view: .notificationHistory)` only when enabled. Add `.help(label)` and `.accessibilityLabel(label)` to `TabButton`.
 
-- [ ] **Make the tab wing fit.** `TabButton` currently uses 15-point horizontal padding per icon. Add a `horizontalPadding: CGFloat = 15` parameter, use it in the existing padding modifier, and pass 8 from `TabSelectionView` when `tabs.count >= 5`; retain 15 for fewer tabs. Verify all five controls fit the measured left wing without intruding on the camera; retain the existing physical exclusion rather than centering the new tab under the camera.
+- [x] **Make the tab wing fit.** `TabButton` currently uses 15-point horizontal padding per icon. Add a `horizontalPadding: CGFloat = 15` parameter, use it in the existing padding modifier, and pass 8 from `TabSelectionView` when `tabs.count >= 5`; retain 15 for fewer tabs. Verify all five controls fit the measured left wing without intruding on the camera; retain the existing physical exclusion rather than centering the new tab under the camera.
 
-- [ ] **Route menu and live-card access through one request.** Add the event in the existing `Notification.Name` extension in `SystemNotificationManager.swift`:
+- [x] **Route menu and live-card access through one request.** Add the event in the existing `Notification.Name` extension in `SystemNotificationManager.swift`:
 
 ```swift
 static let notificationHistoryRequested = Notification.Name("notificationHistoryRequested")
@@ -540,7 +540,7 @@ private func openNotificationHistory() {
 
 Selecting the history tab while already open must also clear those automatic-presentation restore flags. Do not allow an old expiry event to close or navigate away from explicitly opened history.
 
-- [ ] **Give history priority only while manually selected and open.** Add these computed properties to `ContentView` and handle the history branch before the live expanded notification in `NotchLayout`:
+- [x] **Give history priority only while manually selected and open.** Add these computed properties to `ContentView` and handle the history branch before the live expanded notification in `NotchLayout`:
 
 ```swift
 private var historyActive: Bool {
@@ -577,7 +577,7 @@ func setOpenContentHeight(_ height: CGFloat) {
 
 Use `historyPanelHeight` for `openLayoutHeight` only in history mode, and set the root canvas maxHeight to `historyPanelHeight + shadowPadding` there, otherwise `windowSize.height`. When leaving history, restore `vm.setOpenContentHeight(openNotchSize.height)`. Reset `.notificationHistory` to `.home` when closing the notch, even when `openLastTabByDefault` is enabled: an automatic live banner must not reopen the history tab.
 
-- [ ] **Separate keyboard ownership from live reply focus.** In `BoringNotchSkyLightWindow.swift`, replace the existing text-input flag's observer and `canBecomeKey` implementation with this shared computation. Keep `canBecomeMain` unchanged:
+- [x] **Separate keyboard ownership from live reply focus.** In `BoringNotchSkyLightWindow.swift`, replace the existing text-input flag's observer and `canBecomeKey` implementation with this shared computation. Keep `canBecomeMain` unchanged:
 
 ```swift
 var wantsKeyForTextInput = false { didSet { updateKeyboardOwnership() } }
@@ -594,7 +594,7 @@ private func updateKeyboardOwnership() {
 override var canBecomeKey: Bool { wantsKeyForTextInput || wantsKeyForHistory }
 ```
 
-- [ ] **Resize the existing window, not a second panel.** Implement `NotificationHistoryPanelHost.swift` as a zero-sized view mounted on ContentView's persistent root background. It must stay mounted through history exit so it can restore the native frame:
+- [x] **Resize the existing window, not a second panel.** Implement `NotificationHistoryPanelHost.swift` as a zero-sized view mounted on ContentView's persistent root background. It must stay mounted through history exit so it can restore the native frame:
 
 ```swift
 import AppKit
@@ -654,11 +654,11 @@ struct NotificationHistoryPanelHost: NSViewRepresentable {
 
 Attach with `height: historyActive ? historyPanelHeight + shadowPadding : nil` and `.frame(width: 0, height: 0)`. Preserve top anchoring and normal width, level, signing, sharing policy and panel instance. On display changes, recompute the history maximum and camera reservation before updating geometry. The host releases only `wantsKeyForHistory`; it never writes the reply view's `wantsKeyForTextInput` flag.
 
-- [ ] **Prevent live events/gestures from hijacking browsing.** Add `guard !historyActive else { return }` at the start of `handleAutomaticNotificationOpening()` and `restoreAfterAutomaticNotification()`. Gate the parent content-open tap and up/down `panGesture` modifiers with `!historyActive`; retain the existing expanded-notification guard and closed swipe behavior. Guard automatic restore reactions while history is selected. Normal pointer exit still follows existing close behavior, but new captures must not trigger navigation or reconstruct the history view.
+- [x] **Prevent live events/gestures from hijacking browsing.** Add `guard !historyActive else { return }` at the start of `handleAutomaticNotificationOpening()` and `restoreAfterAutomaticNotification()`. Gate the parent content-open tap and up/down `panGesture` modifiers with `!historyActive`; retain the existing expanded-notification guard and closed swipe behavior. Guard automatic restore reactions while history is selected. Normal pointer exit still follows existing close behavior, but new captures must not trigger navigation or reconstruct the history view.
 
 ### Task 5: Privacy Copy and Native Manual Verification
 
-- [ ] **Replace obsolete settings text.** In `NotificationSettingsView.swift`, replace the footer that claims all content is discarded after presentation with:
+- [x] **Replace obsolete settings text.** In `NotificationSettingsView.swift`, replace the footer that claims all content is discarded after presentation with:
 
 ```swift
 Text("Only visible banners are mirrored. The latest 200 notifications, including Saved for later, stay in memory for this session. Quitting the app or disabling notifications clears the history. Nothing is saved to disk.")
@@ -666,7 +666,7 @@ Text("Only visible banners are mirrored. The latest 200 notifications, including
 
 Add the Notification History button from Task 4 in a Session history section with the same help text. In `docs/notifications.md`, document grouping, save-for-later as a bookmark rather than a reminder, the shared 200-item limit, manual opening, deletion/undo only affecting notch history, source-opening limitations and absence of history reply/call controls.
 
-- [ ] **Self-review source and project registration.** Run:
+- [x] **Self-review source and project registration.** Run:
 
 ```bash
 git diff --check
@@ -676,7 +676,7 @@ rg -n 'notificationHistory|historyActive|NotificationHistory' boringNotch
 
 Expected: no whitespace errors; project plist reports OK; new source files are assigned only to the app target. Check every `switch` on `NotchViews` for exhaustiveness and all privacy copy for the old discarded-after-presentation claim.
 
-- [ ] **Build/install with the sole approved script.** Run from the repository root:
+- [x] **Build/install with the sole approved script.** Run from the repository root:
 
 ```bash
 ./scripts/install-local.sh > /tmp/notch-history-install.log 2>&1
@@ -699,9 +699,9 @@ Expected: exit 0, successful app/helper signature and entitlement verification, 
 
 ### Task 6: Review, Publish and Verify Installation
 
-- [ ] **Request focused code review.** Use the requesting-code-review skill, giving the reviewer this approved spec and the diff. Ask specifically about removed-item resurrection, hidden-source undo, stale native actions, history/live priority, key ownership and camera-safe native panel resizing. Resolve important findings; rerun the script if source changed.
+- [x] **Request focused code review.** Use the requesting-code-review skill, giving the reviewer this approved spec and the diff. Ask specifically about removed-item resurrection, hidden-source undo, stale native actions, history/live priority, key ownership and camera-safe native panel resizing. Resolve important findings; rerun the script if source changed.
 
-- [ ] **Confirm the installed binary matches the scripted product.** Run:
+- [x] **Confirm the installed binary matches the scripted product.** Run:
 
 ```bash
 shasum -a 256 .build/local-install/Build/Products/Release/boringNotch.app/Contents/MacOS/boringNotch /Applications/boringNotch.app/Contents/MacOS/boringNotch
@@ -720,3 +720,12 @@ git status --short
 ```
 
 Expected: `0 0` divergence and no pending feature changes. Mark completed plan checkboxes truthfully, summarize installed behavior, then return to the separately approved next feature: clipboard search and favorites.
+
+## Execution notes — 2026-09-09
+
+- Final installation succeeded through `./scripts/install-local.sh`; app/helper signatures and entitlements passed the script checks. Built and installed executable SHA-256: `161bd8a7d0afd2ea8056ba6f00d3d851276133dc5a9939223a660728256ab865`.
+- Implemented and reviewed the store, capture integration, grouped reading view, navigation, panel restoration and privacy guidance. No test target or new dependency was added.
+- Native checks used four temporary, value-only snapshots from three app identities, not real incoming banners. Confirmed multiple expanded groups, app/saved filters, Save, Remove/Undo, Clear/Undo, full-text scrolling, Read/Back, Escape detail→list→closed, source opening through Finder, and absence of reply/call actions in historical records.
+- Native screenshots exposed a content-height preference being replaced by zero. Direct geometry measurement fixed the fallback-height viewport: the panel now grows to the 390-point silhouette limit and shrinks for shorter filtered content. Read starts at the top of a long detail. Closing restores the original 210-point window. Rendered outer insets are symmetric.
+- Temporary sample data and numeric layout controls were removed before the delivery build. No fixture hook remains in production.
+- Remaining manual coverage: real capture/late updates and arrivals during reading, hidden-source/disable transitions, runtime 200-item eviction, physical-camera confirmation on both display types, and media/Focus regression checks. Those paths received source review but are not claimed as fully runtime-verified; the comprehensive manual-verification checkbox remains open.

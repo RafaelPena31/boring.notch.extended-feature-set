@@ -60,7 +60,18 @@ struct NotificationSettingsView: View {
             } header: {
                 Text("Notification Live Activity")
             } footer: {
-                Text("Only visible banners are mirrored. Notification content stays in memory and is discarded after presentation.")
+                Text("Only visible banners are mirrored. The latest 200 notifications, including Saved for later, stay in memory for this session. Quitting the app or disabling notifications clears the history. Nothing is saved to disk.")
+            }
+
+            Section {
+                Button("Notification History", systemImage: "clock.arrow.circlepath") {
+                    NotificationCenter.default.post(name: .notificationHistoryRequested, object: nil)
+                }
+                .disabled(!notificationsEnabled)
+            } header: {
+                Text("Session history")
+            } footer: {
+                Text("Browse notifications grouped by app. Save for later bookmarks an item for this session, not a reminder. Saved items share the 200-notification limit. Hiding an app or category also removes its history.")
             }
 
             Section {

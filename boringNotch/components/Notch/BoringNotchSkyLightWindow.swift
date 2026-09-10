@@ -33,13 +33,14 @@ extension SkyLightOperator {
 
 class BoringNotchSkyLightWindow: NSPanel {
     private var isSkyLightEnabled: Bool = false
-    var wantsKeyForTextInput = false {
-        didSet {
-            if wantsKeyForTextInput {
-                makeKey()
-            } else if isKeyWindow {
-                resignKey()
-            }
+    var wantsKeyForTextInput = false { didSet { updateKeyboardOwnership() } }
+    var wantsKeyForHistory = false { didSet { updateKeyboardOwnership() } }
+
+    private func updateKeyboardOwnership() {
+        if wantsKeyForTextInput || wantsKeyForHistory {
+            if !isKeyWindow { makeKey() }
+        } else if isKeyWindow {
+            resignKey()
         }
     }
     
@@ -118,6 +119,6 @@ class BoringNotchSkyLightWindow: NSPanel {
     
     private var observers: Set<AnyCancellable> = []
     
-    override var canBecomeKey: Bool { wantsKeyForTextInput }
+    override var canBecomeKey: Bool { wantsKeyForTextInput || wantsKeyForHistory }
     override var canBecomeMain: Bool { false }
 }

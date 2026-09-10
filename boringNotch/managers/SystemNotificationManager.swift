@@ -134,6 +134,7 @@ final class SystemNotificationManager: ObservableObject {
         XPCHelperClient.shared.stopNotificationWatching()
         isWatching = false
         releaseAllAndClear()
+        NotificationHistoryStore.shared.reset()
     }
 
     private func startAuthorizationMonitoring() {
@@ -197,19 +198,21 @@ final class SystemNotificationManager: ObservableObject {
             return value
         }
 
-        let bundleID = value("bundleID")
-        let appName = value("appName")
+        let existing = activeNotification?.id == token
+            ? activeNotification : queued.first { $0.id == token }
+        let history = NotificationHistoryStore.shared
+        let historical = history.item(id: token)
+        let bundleID = value("bundleID") ?? existing?.bundleID ?? historical?.bundleID
+        let appName = value("appName") ?? existing?.appName ?? historical?.appName
         let actions = (value("actions") ?? "")
             .components(separatedBy: "\n")
             .filter { !$0.isEmpty }
 
         recordSource(bundleID: bundleID, appName: appName)
 
-        let existing = activeNotification?.id == token
-            ? activeNotification : queued.first { $0.id == token }
-        let title = value("title") ?? existing?.title
-        let subtitle = value("subtitle") ?? existing?.subtitle
-        let body = value("body") ?? existing?.body
+        let title = value("title") ?? existing?.title ?? historical?.title
+        let subtitle = value("subtitle") ?? existing?.subtitle ?? historical?.subtitle
+        let body = value("body") ?? existing?.body ?? historical?.body
         let category = NotificationPolicyManager.category(
             bundleID: bundleID,
             appName: appName,
@@ -232,6 +235,7 @@ final class SystemNotificationManager: ObservableObject {
 
         let decision = NotificationPolicyManager.decision(for: notification)
         if let current = activeNotification, current.id == token {
+            history.record(notification, updateOnly: true)
             guard decision.shouldShow else {
                 dismissActive(token: token)
                 return
@@ -246,6 +250,7 @@ final class SystemNotificationManager: ObservableObject {
             return
         }
         if let index = queued.firstIndex(where: { $0.id == token }) {
+            history.record(notification, updateOnly: true)
             guard decision.shouldShow else {
                 queued.remove(at: index)
                 XPCHelperClient.shared.releaseNotification(token: token)
@@ -261,9 +266,13 @@ final class SystemNotificationManager: ObservableObject {
             return
         }
         // Late AX updates must not bring back a notification already dismissed.
-        guard payload["isUpdate"] != "true", !isDuplicate(notification) else { return }
-        guard decision.shouldShow else { return }
+        if payload["isUpdate"] == "true" {
+            history.record(notification, updateOnly: true)
+            return
+        }
+        guard !isDuplicate(notification), decision.shouldShow else { return }
 
+        history.record(notification, updateOnly: false)
         notification.isHeld = true
         XPCHelperClient.shared.holdNotification(token: notification.id)
 
@@ -498,6 +507,25 @@ final class SystemNotificationManager: ObservableObject {
         return opened
     }
 
+    @discardableResult
+    func openHistoricalSource(_ item: NotificationHistoryItem) async -> Bool {
+        let liveNotification = activeNotification?.id == item.id
+            ? activeNotification : queued.first { $0.id == item.id }
+        if let liveNotification, liveNotification.isLive,
+           await XPCHelperClient.shared.openNotification(token: liveNotification.id) {
+            return true
+        }
+
+        guard let bundleID = item.bundleID,
+              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+        else { return false }
+
+        return (try? await NSWorkspace.shared.openApplication(
+            at: url,
+            configuration: .init()
+        )) != nil
+    }
+
     private func openSourceApplication(for notification: SystemNotification) async -> Bool {
         if await XPCHelperClient.shared.openNotification(token: notification.id) { return true }
         guard let bundleID = notification.bundleID,
@@ -530,6 +558,7 @@ final class SystemNotificationManager: ObservableObject {
 }
 
 extension Notification.Name {
+    static let notificationHistoryRequested = Notification.Name("notificationHistoryRequested")
     static let notificationShouldAutoOpen = Notification.Name("notificationShouldAutoOpen")
     static let notificationPresentationEnded = Notification.Name("notificationPresentationEnded")
 }

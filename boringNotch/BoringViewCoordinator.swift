@@ -150,6 +150,12 @@ class BoringViewCoordinator: ObservableObject {
             }
             .store(in: &tabAvailabilityCancellables)
 
+        Defaults.publisher(.notificationsEnabled)
+            .sink { [weak self] _ in
+                Task { @MainActor in self?.normalizeCurrentViewIfNeeded() }
+            }
+            .store(in: &tabAvailabilityCancellables)
+
         // Observe changes to hudReplacement
         hudReplacementCancellable = Defaults.publisher(.hudReplacement)
             .sink { [weak self] change in
@@ -323,6 +329,8 @@ class BoringViewCoordinator: ObservableObject {
             if !Defaults[.clipboardHistoryEnabled] { currentView = .home }
         case .pomodoro:
             break
+        case .notificationHistory:
+            if !Defaults[.notificationsEnabled] { currentView = .home }
         }
     }
 }

@@ -34,6 +34,8 @@ struct ContentView: View {
     @State private var notificationPresentationView: NotchViews?
     @State private var automaticNotificationPanelToken: String?
     @State private var isNotificationQuickActionHovered = false
+    @State private var historyPanelHeight: CGFloat = openNotchSize.height
+    @State private var historyContentHeight: CGFloat = 0
 
     @State private var gestureProgress: CGFloat = .zero
 
@@ -152,6 +154,7 @@ struct ContentView: View {
 
     private var usesCompactPlayer: Bool {
         vm.notchState == .open
+            && !historyActive
             && musicPlayerLayout == .compact
             && notificationManager.activeNotification == nil
     }
@@ -166,7 +169,19 @@ struct ContentView: View {
     }
 
     private var expandedNotificationActive: Bool {
-        vm.notchState == .open && notificationManager.activeNotification != nil
+        vm.notchState == .open && !historyActive && notificationManager.activeNotification != nil
+    }
+
+    private var historyActive: Bool {
+        vm.notchState == .open && coordinator.currentView == .notificationHistory
+    }
+
+    private var historyMaximumHeight: CGFloat {
+        min(390, max(190, (vm.currentScreen?.frame.height ?? 900) - shadowPadding))
+    }
+
+    private var historyHeaderHeight: CGFloat {
+        max(24, vm.effectiveClosedNotchHeight, vm.physicalNotchExclusionHeight)
     }
 
     private var notificationHeaderHeight: CGFloat {
@@ -179,6 +194,7 @@ struct ContentView: View {
 
     private var openLayoutHeight: CGFloat? {
         guard vm.notchState == .open else { return nil }
+        if historyActive { return historyPanelHeight }
         return usesCompactPlayer || usesAutomaticNotificationPanel
             ? nil
             : vm.notchSize.height
@@ -420,7 +436,7 @@ struct ContentView: View {
                         handleHover(hovering)
                     }
                     .onTapGesture {
-                        guard !isNotificationQuickActionHovered else { return }
+                        guard !historyActive, !isNotificationQuickActionHovered else { return }
                         if notificationActivityActive,
                            let notification = notificationManager.activeNotification {
                             Task { _ = await notificationManager.open(notification) }
@@ -429,13 +445,13 @@ struct ContentView: View {
                             doOpen()
                         }
                     }
-                    .conditionalModifier(Defaults[.enableGestures] && !expandedNotificationActive) { view in
+                    .conditionalModifier(Defaults[.enableGestures] && !expandedNotificationActive && !historyActive) { view in
                         view
                             .panGesture(direction: .down) { translation, phase in
                                 handleDownGesture(translation: translation, phase: phase)
                             }
                     }
-                    .conditionalModifier(Defaults[.closeGestureEnabled] && Defaults[.enableGestures] && !expandedNotificationActive) { view in
+                    .conditionalModifier(Defaults[.closeGestureEnabled] && Defaults[.enableGestures] && !expandedNotificationActive && !historyActive) { view in
                         view
                             .panGesture(direction: .up) { translation, phase in
                                 handleUpGesture(translation: translation, phase: phase)
@@ -458,6 +474,9 @@ struct ContentView: View {
                     .onReceive(NotificationCenter.default.publisher(for: .notificationShouldAutoOpen)) { _ in
                         handleAutomaticNotificationOpening()
                     }
+                    .onReceive(NotificationCenter.default.publisher(for: .notificationHistoryRequested)) { _ in
+                        openNotificationHistory()
+                    }
                     .onReceive(NotificationCenter.default.publisher(for: .notificationPresentationEnded)) { _ in
                         hoverTask?.cancel()
                         restoreAfterAutomaticNotification()
@@ -478,6 +497,22 @@ struct ContentView: View {
                             }
                         }
                     }
+                    .onChange(of: historyActive) { _, active in
+                        if active {
+                            clearAutomaticNotificationRestoration()
+                            hoverTask?.cancel()
+                            notificationManager.resumeExpiry(after: 3)
+                            vm.setOpenContentHeight(historyPanelHeight)
+                        } else {
+                            vm.setOpenContentHeight(openNotchSize.height)
+                        }
+                    }
+                    .onChange(of: historyMaximumHeight) { _, _ in
+                        updateHistoryHeight(historyContentHeight)
+                    }
+                    .onChange(of: historyHeaderHeight) { _, _ in
+                        updateHistoryHeight(historyContentHeight)
+                    }
                     .onChange(of: vm.isBatteryPopoverActive) {
                         if !vm.isBatteryPopoverActive && !isHovering && vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
                             hoverTask?.cancel()
@@ -494,6 +529,10 @@ struct ContentView: View {
                     }
                     .sensoryFeedback(.alignment, trigger: haptics)
                     .contextMenu {
+                        Button("Notification History", systemImage: "clock.arrow.circlepath") {
+                            openNotificationHistory()
+                        }
+                        .disabled(!Defaults[.notificationsEnabled])
                         Button("Settings") {
                             DispatchQueue.main.async {
                                 SettingsWindowController.shared.showWindow()
@@ -514,7 +553,13 @@ struct ContentView: View {
             }
         }
         .padding(.bottom, 8)
-        .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
+        .frame(maxWidth: windowSize.width,
+               maxHeight: historyActive ? historyPanelHeight + shadowPadding : windowSize.height,
+               alignment: .top)
+        .background {
+            NotificationHistoryPanelHost(height: historyActive ? historyPanelHeight + shadowPadding : nil)
+                .frame(width: 0, height: 0)
+        }
         .compositingGroup()
         .scaleEffect(
             x: gestureScale,
@@ -596,6 +641,9 @@ struct ContentView: View {
                               .frame(alignment: .center)
                       } else if !coordinator.expandingView.show && vm.notchState == .closed && (!musicManager.isPlaying && musicManager.isPlayerIdle) && Defaults[.showNotHumanFace] && !vm.hideOnClosed  {
                           BoringFaceAnimation()
+                       } else if historyActive {
+                           BoringHeader()
+                               .frame(height: historyHeaderHeight)
                        } else if vm.notchState == .open,
                                  (notificationManager.activeNotification != nil || usesCompactPlayer) {
                            Rectangle()
@@ -669,7 +717,12 @@ struct ContentView: View {
               .zIndex(2)
             if vm.notchState == .open {
                 VStack {
-                    if let notification = notificationManager.activeNotification {
+                    if historyActive {
+                        NotificationHistoryView(
+                            maximumHeight: historyMaximumHeight - historyHeaderHeight - 8 - 12,
+                            onHeightChange: updateHistoryHeight
+                        )
+                    } else if let notification = notificationManager.activeNotification {
                         NotificationExpandedView(
                             notification: notification,
                             compactPresentation: usesAutomaticNotificationPanel,
@@ -698,6 +751,8 @@ struct ContentView: View {
                             ClipboardView()
                         case .pomodoro:
                             PomodoroView()
+                        case .notificationHistory:
+                            EmptyView() // Presented above, ahead of the live notification.
                         }
                     }
                 }
@@ -1101,11 +1156,15 @@ struct ContentView: View {
         if coordinator.firstLaunch { return }
         hoverTask?.cancel()
 
-        if hovering {
-            notificationManager.holdActive()
-        } else {
+        if !historyActive {
+            if hovering {
+                notificationManager.holdActive()
+            } else {
+                notificationManager.resumeExpiry(after: 3)
+            }
+        }
+        if !hovering {
             isNotificationQuickActionHovered = false
-            notificationManager.resumeExpiry(after: 3)
         }
         
         if hovering {
@@ -1153,7 +1212,31 @@ struct ContentView: View {
         }
     }
 
+    private func clearAutomaticNotificationRestoration() {
+        automaticNotificationPanelToken = nil
+        notificationPresentationWasOpen = nil
+        notificationPresentationView = nil
+    }
+
+    private func openNotificationHistory() {
+        guard Defaults[.notificationsEnabled],
+              vm.screenUUID == nil || vm.screenUUID == coordinator.selectedScreenUUID
+        else { return }
+        hoverTask?.cancel()
+        clearAutomaticNotificationRestoration()
+        coordinator.currentView = .notificationHistory
+        if vm.notchState == .closed { doOpen() }
+    }
+
+    private func updateHistoryHeight(_ contentHeight: CGFloat) {
+        historyContentHeight = contentHeight
+        let total = min(historyMaximumHeight, historyHeaderHeight + 8 + contentHeight + 12)
+        historyPanelHeight = total
+        if historyActive { vm.setOpenContentHeight(total) }
+    }
+
     private func handleAutomaticNotificationOpening() {
+        guard !historyActive else { return }
         guard let notification = notificationManager.activeNotification,
               vm.screenUUID == nil || vm.screenUUID == coordinator.selectedScreenUUID
         else { return }
@@ -1171,6 +1254,7 @@ struct ContentView: View {
     }
 
     private func restoreAfterAutomaticNotification() {
+        guard !historyActive else { return }
         guard let wasOpen = notificationPresentationWasOpen else { return }
         if let previousView = notificationPresentationView {
             coordinator.currentView = previousView

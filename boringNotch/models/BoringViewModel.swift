@@ -217,6 +217,11 @@ class BoringViewModel: NSObject, ObservableObject {
         MusicManager.shared.forceUpdate()
     }
 
+    func setOpenContentHeight(_ height: CGFloat) {
+        guard notchState == .open else { return }
+        notchSize = CGSize(width: openNotchSize.width, height: height)
+    }
+
     func close() {
         // Do not close while a share picker or sharing service is active
         if SharingStateManager.shared.preventNotchClose {
@@ -231,7 +236,9 @@ class BoringViewModel: NSObject, ObservableObject {
 
         // Set the current view to shelf if it contains files and the user enables openShelfByDefault
         // Otherwise, if the user has not enabled openLastShelfByDefault, set the view to home
-    if !ShelfStateViewModel.shared.isEmpty && Defaults[.openShelfByDefault] {
+        if coordinator.currentView == .notificationHistory {
+            coordinator.currentView = .home
+        } else if !ShelfStateViewModel.shared.isEmpty && Defaults[.openShelfByDefault] {
             coordinator.currentView = .shelf
         } else if !coordinator.openLastTabByDefault {
             coordinator.currentView = .home

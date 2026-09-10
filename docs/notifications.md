@@ -11,3 +11,15 @@ Configure the feature in **Settings → Notifications**. Accessibility access is
 - FaceTime notifications use the call presentation even when the app's bundle identifier cannot be resolved. Calls never show a text-reply editor. Live Answer/Decline controls appear only if macOS exposes those actions; otherwise the notification offers Open in the source app.
 
 Content and drafts remain in memory. Only app identities and notification preferences are saved. The app cannot reveal content that macOS or the originating app withholds from its notification banner.
+
+## Session history
+
+Open **Notifications** in the notch tabs, **Notification History** in the app menu, or **Settings → Notifications → Session history**. The expanded live notification also has a history button. History opens manually inside the existing notch, below the physical camera area; new banners do not take over while you are browsing it.
+
+- Notifications are grouped by app, newest first. Expand several groups at once, filter by app, or use **Read** for the complete captured text. Long text scrolls without added ellipses. Escape returns from detail to the list, then closes the notch.
+- **Save for later** bookmarks a notification for this session. It does not schedule a reminder. Recent and Saved share a limit of **200 notifications**; the oldest records are removed when the limit is reached.
+- Dismissing or opening a live notification does not remove its history. The visible remove button and **Clear history** affect only notch history, not macOS Notification Center. **Undo** restores the last removal or clear while preserving newer arrivals.
+- Clicking the content opens its source. A still-live banner can preserve its original destination; otherwise the app falls back to opening the local application. Old conversations and iPhone-only apps may not be reopenable. Failures appear inline without deleting the record.
+- Historical items have no reply composer or call controls. Reading history does not retain native notification actions or keep banners alive.
+
+History, saved marks and undo data stay **in memory only**. Quitting the app or disabling notifications clears them. Hiding an app or category also removes its retained records, including undo data. A temporary capture-helper disconnection does not erase already captured text. History does not import older macOS Notification Center entries, and no notification text or thumbnails are written to disk, logs or cloud services.

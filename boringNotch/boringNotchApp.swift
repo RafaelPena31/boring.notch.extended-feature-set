@@ -16,6 +16,7 @@ import SwiftUI
 struct DynamicNotchApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @Default(.menubarIcon) var showMenuBarIcon
+    @Default(.notificationsEnabled) var notificationsEnabled
     @Environment(\.openWindow) var openWindow
 
     let updaterController: SPUStandardUpdaterController
@@ -36,6 +37,11 @@ struct DynamicNotchApp: App {
                 }
             }
             .keyboardShortcut(KeyEquivalent(","), modifiers: .command)
+            Button("Notification History", systemImage: "clock.arrow.circlepath") {
+                NotificationCenter.default.post(name: .notificationHistoryRequested, object: nil)
+            }
+            .keyboardShortcut("n", modifiers: [.command, .shift])
+            .disabled(!notificationsEnabled)
             CheckForUpdatesView(updater: updaterController.updater)
             Divider()
             Button("Restart Boring Notch") {
