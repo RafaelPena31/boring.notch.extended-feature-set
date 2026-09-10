@@ -17,6 +17,7 @@ let openNotchSize: CGSize = .init(width: 640, height: 190)
 let windowSize: CGSize = .init(width: openNotchSize.width, height: openNotchSize.height + shadowPadding)
 let notificationHistoryNotchHeight: CGFloat = 340
 let notificationHistoryWindowHeight: CGFloat = notificationHistoryNotchHeight + shadowPadding
+let notchResizeAnimationDuration: TimeInterval = 0.24
 let cornerRadiusInsets: (opened: (top: CGFloat, bottom: CGFloat), closed: (top: CGFloat, bottom: CGFloat)) = (opened: (top: 19, bottom: 24), closed: (top: 6, bottom: 14))
 
 enum MusicPlayerImageSizes {

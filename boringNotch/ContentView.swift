@@ -416,7 +416,9 @@ struct ContentView: View {
                     )
                 
                 mainLayout
-                    .animation(reduceMotion ? nil : .smooth(duration: 0.24)) { content in
+                    .animation(
+                        reduceMotion ? nil : .easeInOut(duration: notchResizeAnimationDuration)
+                    ) { content in
                         content.frame(height: openLayoutHeight, alignment: .top)
                     }
                     .conditionalModifier(true) { view in

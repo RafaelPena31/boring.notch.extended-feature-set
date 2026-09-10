@@ -62,7 +62,7 @@ struct NotificationHistoryPanelHost: NSViewRepresentable {
             }
 
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.24
+                context.duration = notchResizeAnimationDuration
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 panel.animator().setFrame(target, display: true)
             } completionHandler: { [weak self, weak panel] in
