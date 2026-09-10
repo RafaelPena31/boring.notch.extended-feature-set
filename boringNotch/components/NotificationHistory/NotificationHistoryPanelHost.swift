@@ -1,62 +1,43 @@
 import AppKit
 import SwiftUI
 
-/// Resizes the existing notch panel for manual browsing, then restores its frame.
+/// Gives history keyboard ownership without changing the shared notch window.
 struct NotificationHistoryPanelHost: NSViewRepresentable {
-    let height: CGFloat?
+    let isActive: Bool
 
     final class HostView: NSView {
-        var requestedHeight: CGFloat?
-        private var normalHeight: CGFloat?
-        private weak var ownedPanel: BoringNotchSkyLightWindow?
+        var isActive = false
+        private weak var panel: BoringNotchSkyLightWindow?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            if ownedPanel !== window { restore() }
+            if panel !== window { releaseKeyboard() }
             apply()
         }
 
         func apply() {
             guard let panel = window as? BoringNotchSkyLightWindow else { return }
-            if let requestedHeight {
-                if normalHeight == nil {
-                    normalHeight = panel.frame.height
-                    ownedPanel = panel
-                }
-                resize(panel, height: requestedHeight)
-                panel.wantsKeyForHistory = true
-            } else {
-                restore()
-            }
+            self.panel = panel
+            panel.wantsKeyForHistory = isActive
         }
 
-        func restore() {
-            if let panel = ownedPanel, let normalHeight {
-                resize(panel, height: normalHeight)
+        func releaseKeyboard() {
+            if let panel {
                 panel.wantsKeyForHistory = false
             }
-            normalHeight = nil
-            ownedPanel = nil
-        }
-
-        private func resize(_ panel: NSWindow, height: CGFloat) {
-            var frame = panel.frame
-            guard abs(frame.height - height) > 0.5 else { return }
-            frame.origin.y = frame.maxY - height
-            frame.size.height = height
-            panel.setFrame(frame, display: true)
+            panel = nil
         }
     }
 
     func makeNSView(context: Context) -> HostView { HostView() }
 
     func updateNSView(_ view: HostView, context: Context) {
-        view.requestedHeight = height
+        view.isActive = isActive
         DispatchQueue.main.async { [weak view] in view?.apply() }
     }
 
     static func dismantleNSView(_ view: HostView, coordinator: ()) {
-        view.requestedHeight = nil
-        view.restore()
+        view.isActive = false
+        view.releaseKeyboard()
     }
 }

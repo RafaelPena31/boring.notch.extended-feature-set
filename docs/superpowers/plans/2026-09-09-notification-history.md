@@ -734,8 +734,15 @@ Expected: `0 0` divergence and no pending feature changes. Mark completed plan c
 ## Follow-up — history closes on selection
 
 - Temporary, content-free runtime diagnostics confirmed two delayed hover closures while history was open and the physical pointer was still inside the notch. Changing the gesture branches and resizing the panel can invalidate SwiftUI's tracking region without a real pointer exit.
-- Replaced the conditional gesture branches with persistent gesture modifiers that enable/disable in place. This preserves the whole notch's visual identity rather than remounting it on history selection; only its content and height change. Disabled gestures leave child interactions enabled and reset pending native scroll callbacks.
+- Replaced the conditional gesture branches with persistent gesture modifiers that enable/disable in place. This preserves the whole notch's visual identity rather than remounting it on history selection. Disabled gestures leave child interactions enabled and reset pending native scroll callbacks.
 - Hover observation also stays mounted. The delayed history exit rechecks the pointer until it actually leaves; hover entry and navigation cancel that check. Screen bounds include the upper edge so a monitor above the notch is not counted as inside.
 - The shortcut's three-second preview timer no longer closes manually selected history. Live-notification expiration does not cancel history's exit handling. Escape, the close button, and normal pointer-exit dismissal remain enabled.
 - Focused code review covered tracking identity, cancellation and expiry interactions. Temporary diagnostics were removed, and no notification content was logged. Post-fix physical-pointer confirmation remains a manual check.
 - The canonical install script passed with the final stable-gesture/header implementation. Built and installed executable SHA-256 both equal `e323c8788ebfce5a7c96c32fe4eb4a005f80636aa9962167a433574f84f7dace`. Native menu entry opened history, and History → Home retained the same accessible header controls; concurrent user interaction interrupted the reverse-navigation check.
+
+## Follow-up — fixed-size tab presentation
+
+- The earlier up-to-390-point history geometry in this implementation plan is superseded by the user's fixed-size requirement. History now uses the ordinary 640 × 190-point open silhouette and the existing 640 × 210-point panel canvas.
+- Removed all history-specific native panel resizing and dynamic `notchSize` updates. The AppKit host now owns only keyboard focus for Escape handling.
+- Moved History into the same `currentView` switch as Home, Shelf, Clipboard and Pomodoro. Its one-row controls remain fixed while the notification list and full-text detail scroll within the remaining height.
+- The canonical install script passed. Built and installed executable SHA-256 both equal `7e5cba89294f6cd7e25ec4ea4adeb25d41e002ab3a292669f432ebb07c264f31`. Native Home → History → Home switching kept the same panel height; the settled History frame contained no previous-tab content.

@@ -18,7 +18,7 @@ Add a manually opened notification history inside the existing notch. This is th
 ## Notch Geometry and Interaction
 
 - Reuse the existing panel, opening animation and black silhouette. Never create a detached card or second floating window.
-- History can use a taller manually opened layout than a transient notification: size to content up to 390 points total, within the selected display. Keep the existing maximum width of 640 points. Restore normal dimensions when leaving history or closing the notch.
+- History uses the same 640 × 190-point open silhouette and the same native panel frame as every other tab. Switching to it changes only the tab content; controls remain compact and notification rows scroll inside the available area.
 - Reserve the actual physical camera height and width before laying out controls or scrollable content. Preserve equal horizontal insets on the outer edges. Screens without a physical notch must remain usable.
 - Use one vertical scrolling area. Scrolling must not trigger the notch-close gesture; Escape returns from detail to history, then closes the notch. Keep mouse and keyboard actions independent of the enclosing content click.
 - Entering history is an explicit browsing action. New captures update its groups without replacing the list or resetting the current detail/scroll position. Leaving history returns to the ordinary live-notification presentation. Outside history, automatic-opening defaults, category/app rules and Focus behavior are unchanged.

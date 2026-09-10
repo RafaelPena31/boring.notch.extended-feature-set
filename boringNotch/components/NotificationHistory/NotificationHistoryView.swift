@@ -11,7 +11,6 @@ struct NotificationHistoryView: View {
     @ObservedObject private var store = NotificationHistoryStore.shared
 
     let maximumHeight: CGFloat
-    let onHeightChange: (CGFloat) -> Void
 
     @State private var filter: HistoryFilter = .recent
     @State private var sourceFilter: String?
@@ -20,8 +19,6 @@ struct NotificationHistoryView: View {
     @State private var selectedID: String?
     @State private var listPosition: HistoryScrollTarget?
     @State private var detailPosition: HistoryScrollTarget?
-    @State private var contentHeight: CGFloat = 0
-    @State private var chromeHeight: CGFloat = 96
     @State private var openingID: String?
     @State private var openingTask: Task<Void, Never>?
     @State private var openFailure: OpenFailure?
@@ -51,23 +48,11 @@ struct NotificationHistoryView: View {
         )
     }
 
-    private var scrollHeight: CGFloat {
-        min(
-            contentHeight > 0 ? contentHeight : 64,
-            max(44, maximumHeight - chromeHeight - 32)
-        )
-    }
-
     var body: some View {
         let groups = visibleGroups
 
         VStack(spacing: 8) {
             header
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear.preference(key: HistoryChromeHeightKey.self, value: geometry.size.height)
-                    }
-                }
 
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -93,35 +78,15 @@ struct NotificationHistoryView: View {
                 }
                 .scrollTargetLayout()
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear
-                            .onChange(of: geometry.size.height, initial: true) { _, height in
-                                contentHeight = height
-                            }
-                    }
-                }
             }
             .scrollPosition(id: scrollPosition, anchor: selectedID == nil ? nil : .top)
-            .frame(height: scrollHeight)
+            .frame(maxHeight: .infinity)
 
             footer
-                .background {
-                    GeometryReader { geometry in
-                        Color.clear.preference(key: HistoryChromeHeightKey.self, value: geometry.size.height)
-                    }
-                }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background {
-            GeometryReader { geometry in
-                Color.clear.onChange(of: geometry.size.height, initial: true) { _, height in
-                    onHeightChange(height)
-                }
-            }
-        }
-        .onPreferenceChange(HistoryChromeHeightKey.self) { chromeHeight = $0 }
+        .padding(.vertical, 4)
+        .frame(height: maximumHeight, alignment: .top)
         .focusable()
         .focusEffectDisabled()
         .focused($isHistoryFocused)
@@ -153,47 +118,41 @@ struct NotificationHistoryView: View {
     }
 
     private var header: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                if selectedID != nil {
-                    HistoryActionButton("Back", symbol: "chevron.left", action: returnToList)
-                }
-
-                Text("Notifications")
-                    .font(.headline)
-
-                Spacer(minLength: 8)
-
-                HistoryActionButton("Clear history", symbol: "trash") {
-                    store.clear()
-                }
-                .disabled(store.items.isEmpty)
-                .help("Clear this session’s notification history; use Undo to restore it")
-
-                HistoryActionButton("Close history", symbol: "xmark", showsTitle: false) {
-                    vm.close()
-                }
+        HStack(spacing: 8) {
+            if selectedID != nil {
+                HistoryActionButton("Back", symbol: "chevron.left", showsTitle: false, action: returnToList)
             }
 
-            HStack(spacing: 12) {
-                Picker("Notifications", selection: $filter) {
-                    Text("Recent").tag(HistoryFilter.recent)
-                    Text("Saved for later").tag(HistoryFilter.saved)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .frame(maxWidth: 220)
+            Text("Notifications")
+                .font(.headline)
 
-                Spacer(minLength: 0)
+            Picker("Notifications", selection: $filter) {
+                Text("Recent").tag(HistoryFilter.recent)
+                Text("Saved for later").tag(HistoryFilter.saved)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(maxWidth: 180)
 
-                Picker("App", selection: $sourceFilter) {
-                    Text("All apps").tag(String?.none)
-                    ForEach(store.groups()) { group in
-                        Text(group.name).tag(Optional(group.id))
-                    }
+            Picker("App", selection: $sourceFilter) {
+                Text("All apps").tag(String?.none)
+                ForEach(store.groups()) { group in
+                    Text(group.name).tag(Optional(group.id))
                 }
-                .pickerStyle(.menu)
-                .fixedSize(horizontal: false, vertical: true)
+            }
+            .pickerStyle(.menu)
+            .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+
+            HistoryActionButton("Clear history", symbol: "trash", showsTitle: false) {
+                store.clear()
+            }
+            .disabled(store.items.isEmpty)
+            .help("Clear this session’s notification history; use Undo to restore it")
+
+            HistoryActionButton("Close history", symbol: "xmark", showsTitle: false) {
+                vm.close()
             }
         }
     }
@@ -528,13 +487,5 @@ private struct HistorySurfaceButtonStyle: ButtonStyle {
             )
             .opacity(isEnabled ? 1 : 0.45)
             .onHover { isHovering = $0 }
-    }
-}
-
-private struct HistoryChromeHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value += nextValue()
     }
 }

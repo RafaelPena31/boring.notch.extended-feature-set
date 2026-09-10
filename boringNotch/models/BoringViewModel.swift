@@ -218,11 +218,6 @@ class BoringViewModel: NSObject, ObservableObject {
         MusicManager.shared.forceUpdate()
     }
 
-    func setOpenContentHeight(_ height: CGFloat) {
-        guard notchState == .open else { return }
-        notchSize = CGSize(width: openNotchSize.width, height: height)
-    }
-
     func close() {
         // Do not close while a share picker or sharing service is active
         if SharingStateManager.shared.preventNotchClose {

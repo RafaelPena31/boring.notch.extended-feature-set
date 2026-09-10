@@ -34,8 +34,6 @@ struct ContentView: View {
     @State private var notificationPresentationView: NotchViews?
     @State private var automaticNotificationPanelToken: String?
     @State private var isNotificationQuickActionHovered = false
-    @State private var historyPanelHeight: CGFloat = openNotchSize.height
-    @State private var historyContentHeight: CGFloat = 0
 
     @State private var gestureProgress: CGFloat = .zero
 
@@ -176,12 +174,12 @@ struct ContentView: View {
         vm.notchState == .open && coordinator.currentView == .notificationHistory
     }
 
-    private var historyMaximumHeight: CGFloat {
-        min(390, max(190, (vm.currentScreen?.frame.height ?? 900) - shadowPadding))
-    }
-
     private var historyHeaderHeight: CGFloat {
         max(24, vm.effectiveClosedNotchHeight, vm.physicalNotchExclusionHeight)
+    }
+
+    private var historyContentHeight: CGFloat {
+        max(0, openNotchSize.height - historyHeaderHeight - 8 - openSecondaryPadding)
     }
 
     private var notificationHeaderHeight: CGFloat {
@@ -194,7 +192,6 @@ struct ContentView: View {
 
     private var openLayoutHeight: CGFloat? {
         guard vm.notchState == .open else { return nil }
-        if historyActive { return historyPanelHeight }
         return usesCompactPlayer || usesAutomaticNotificationPanel
             ? nil
             : vm.notchSize.height
@@ -505,16 +502,7 @@ struct ContentView: View {
                             gestureProgress = .zero
                             clearAutomaticNotificationRestoration()
                             notificationManager.resumeExpiry(after: 3)
-                            vm.setOpenContentHeight(historyPanelHeight)
-                        } else {
-                            vm.setOpenContentHeight(openNotchSize.height)
                         }
-                    }
-                    .onChange(of: historyMaximumHeight) { _, _ in
-                        updateHistoryHeight(historyContentHeight)
-                    }
-                    .onChange(of: historyHeaderHeight) { _, _ in
-                        updateHistoryHeight(historyContentHeight)
                     }
                     .onChange(of: vm.isBatteryPopoverActive) {
                         if !vm.isBatteryPopoverActive && !isHovering && vm.notchState == .open && !SharingStateManager.shared.preventNotchClose {
@@ -556,11 +544,9 @@ struct ContentView: View {
             }
         }
         .padding(.bottom, 8)
-        .frame(maxWidth: windowSize.width,
-               maxHeight: historyActive ? historyPanelHeight + shadowPadding : windowSize.height,
-               alignment: .top)
+        .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
         .background {
-            NotificationHistoryPanelHost(height: historyActive ? historyPanelHeight + shadowPadding : nil)
+            NotificationHistoryPanelHost(isActive: historyActive)
                 .frame(width: 0, height: 0)
         }
         .compositingGroup()
@@ -717,12 +703,8 @@ struct ContentView: View {
               .zIndex(2)
             if vm.notchState == .open {
                 VStack {
-                    if historyActive {
-                        NotificationHistoryView(
-                            maximumHeight: historyMaximumHeight - historyHeaderHeight - 8 - 12,
-                            onHeightChange: updateHistoryHeight
-                        )
-                    } else if let notification = notificationManager.activeNotification {
+                    if let notification = notificationManager.activeNotification,
+                       !historyActive {
                         NotificationExpandedView(
                             notification: notification,
                             compactPresentation: usesAutomaticNotificationPanel,
@@ -752,7 +734,9 @@ struct ContentView: View {
                         case .pomodoro:
                             PomodoroView()
                         case .notificationHistory:
-                            EmptyView() // Presented above, ahead of the live notification.
+                            NotificationHistoryView(
+                                maximumHeight: historyContentHeight
+                            )
                         }
                     }
                 }
@@ -1232,13 +1216,6 @@ struct ContentView: View {
         clearAutomaticNotificationRestoration()
         coordinator.currentView = .notificationHistory
         if vm.notchState == .closed { doOpen() }
-    }
-
-    private func updateHistoryHeight(_ contentHeight: CGFloat) {
-        historyContentHeight = contentHeight
-        let total = min(historyMaximumHeight, historyHeaderHeight + 8 + contentHeight + 12)
-        historyPanelHeight = total
-        if historyActive { vm.setOpenContentHeight(total) }
     }
 
     private func handleAutomaticNotificationOpening() {
