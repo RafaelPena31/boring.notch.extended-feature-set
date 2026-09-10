@@ -24,7 +24,7 @@
 **Files:**
 - Modify: `boringNotch/components/Tabs/TabSelectionView.swift:38-66`
 
-- [ ] **Step 1: Give the capsule one geometry identity**
+- [x] **Step 1: Give the capsule one geometry identity**
 
 Replace the selected/unselected background branches with a selected-only participant:
 
@@ -40,7 +40,7 @@ Replace the selected/unselected background branches with a selected-only partici
 
 Keep every `TabButton` height and horizontal padding unchanged. Retain the animation on `TabSelectionView` itself so only the local capsule and foreground color receive the selection transaction.
 
-- [ ] **Step 2: Inspect the identity path**
+- [x] **Step 2: Inspect the identity path**
 
 Run:
 
@@ -57,7 +57,7 @@ Expected: exactly one `matchedGeometryEffect` call remains in the file, and no h
 - Modify: `boringNotch/components/Clipboard/Views/ClipboardView.swift:10-27`
 - Modify: `boringNotch/ContentView.swift:718-763`
 
-- [ ] **Step 1: Remove Clipboard's whole-tree transaction**
+- [x] **Step 1: Remove Clipboard's whole-tree transaction**
 
 Delete this property, which is used only by the unwanted root transaction:
 
@@ -75,7 +75,7 @@ var body: some View {
 
 Do not change the existing animations bound to `confirmingClear`, `isHovering` or `justCopied`; those are local interaction feedback rather than navigation animation.
 
-- [ ] **Step 2: Disable animation only while replacing the selected module**
+- [x] **Step 2: Disable animation only while replacing the selected module**
 
 Wrap the existing `switch coordinator.currentView` in a `Group` and override only the selection transaction:
 
@@ -102,7 +102,7 @@ Group {
 
 Keep the outer notch open/close transition unchanged. The transaction override belongs only on the normal module switch, not on the whole `ContentView`, so local hover and action feedback continue to work after navigation.
 
-- [ ] **Step 3: Inspect animation scope**
+- [x] **Step 3: Inspect animation scope**
 
 Run:
 
@@ -120,7 +120,7 @@ Expected: Clipboard has no root `vm.animation` transaction; the module switch ha
 - Modify: `boringNotch/ContentView.swift:416-422`
 - Modify: `boringNotch/components/NotificationHistory/NotificationHistoryPanelHost.swift:64-68`
 
-- [ ] **Step 1: Define one duration**
+- [x] **Step 1: Define one duration**
 
 Add beside the existing window and history sizing constants:
 
@@ -128,7 +128,7 @@ Add beside the existing window and history sizing constants:
 let notchResizeAnimationDuration: TimeInterval = 0.24
 ```
 
-- [ ] **Step 2: Use matching non-bouncy geometry animations**
+- [x] **Step 2: Use matching non-bouncy geometry animations**
 
 Change the scoped SwiftUI frame animation to:
 
@@ -149,7 +149,7 @@ context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
 
 Keep top-edge anchoring, resize generations, interruption reconciliation and Reduce Motion behavior unchanged.
 
-- [ ] **Step 3: Review the focused diff**
+- [x] **Step 3: Review the focused diff**
 
 Run:
 
@@ -165,7 +165,7 @@ Expected: navigation content has no movement or opacity transition; only the hei
 **Files:**
 - Modify: `docs/superpowers/plans/2026-09-09-tab-transition-animation.md`
 
-- [ ] **Step 1: Build and install through the canonical process**
+- [x] **Step 1: Build and install through the canonical process**
 
 Run from the repository root:
 
@@ -175,7 +175,7 @@ Run from the repository root:
 
 Expected: exit 0 and output ending with `Installed boringNotch ... with the configured development team.` Existing unrelated compiler warnings do not invalidate an exit-0 build.
 
-- [ ] **Step 2: Verify product identity**
+- [x] **Step 2: Verify product identity**
 
 Run:
 
@@ -219,3 +219,11 @@ git status --short
 ```
 
 Expected: divergence is `0 0`; only `.superpowers/` remains untracked.
+
+### Execution notes
+
+- Source HEAD: `d9c4e05e21025d0da3d751935aca824da1cacf6a` (`fix: synchronize notch resize timing`).
+- `./scripts/install-local.sh` completed with exit 0; it installed `boringNotch` with the configured development team. No transient `.build/local-install: Directory not empty` cleanup warning occurred.
+- SHA-256: `41f4386f385309110a5bf56238dd2f2e64a23b24759eb63526a99bf12f18f571` for both the Release artifact and `/Applications/boringNotch.app` executable.
+- Existing warning status: no build warnings were reported by the canonical installer; `git diff --check` passed. The only pre-existing worktree item is untracked `.superpowers/`.
+- Physical-notch visual behavior could not be observed directly in this environment; Task 4, Step 3 remains pending user confirmation. Installed-app signature verification passed.
