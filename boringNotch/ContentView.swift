@@ -15,6 +15,7 @@ import SwiftUIIntrospect
 
 @MainActor
 struct ContentView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject var webcamManager = WebcamManager.shared
 
@@ -179,7 +180,7 @@ struct ContentView: View {
     }
 
     private var historyContentHeight: CGFloat {
-        max(0, openNotchSize.height - historyHeaderHeight - 8 - openSecondaryPadding)
+        max(0, notificationHistoryNotchHeight - historyHeaderHeight - 8 - openSecondaryPadding)
     }
 
     private var notificationHeaderHeight: CGFloat {
@@ -192,6 +193,7 @@ struct ContentView: View {
 
     private var openLayoutHeight: CGFloat? {
         guard vm.notchState == .open else { return nil }
+        if historyActive { return notificationHistoryNotchHeight }
         return usesCompactPlayer || usesAutomaticNotificationPanel
             ? nil
             : vm.notchSize.height
@@ -414,7 +416,9 @@ struct ContentView: View {
                     )
                 
                 mainLayout
-                    .frame(height: openLayoutHeight, alignment: .top)
+                    .animation(reduceMotion ? nil : .smooth(duration: 0.24)) { content in
+                        content.frame(height: openLayoutHeight, alignment: .top)
+                    }
                     .conditionalModifier(true) { view in
                         let openAnimation = Animation.spring(response: 0.42, dampingFraction: 0.8, blendDuration: 0)
                         let closeAnimation = Animation.spring(response: 0.45, dampingFraction: 1.0, blendDuration: 0)
@@ -498,6 +502,9 @@ struct ContentView: View {
                     }
                     .onChange(of: historyActive) { _, active in
                         hoverTask?.cancel()
+                        vm.setOpenContentHeight(
+                            active ? notificationHistoryNotchHeight : openNotchSize.height
+                        )
                         if active {
                             gestureProgress = .zero
                             clearAutomaticNotificationRestoration()
@@ -544,9 +551,16 @@ struct ContentView: View {
             }
         }
         .padding(.bottom, 8)
-        .frame(maxWidth: windowSize.width, maxHeight: windowSize.height, alignment: .top)
+        .frame(
+            maxWidth: windowSize.width,
+            maxHeight: historyActive ? notificationHistoryWindowHeight : windowSize.height,
+            alignment: .top
+        )
         .background {
-            NotificationHistoryPanelHost(isActive: historyActive)
+            NotificationHistoryPanelHost(
+                isActive: historyActive,
+                reduceMotion: reduceMotion
+            )
                 .frame(width: 0, height: 0)
         }
         .compositingGroup()
