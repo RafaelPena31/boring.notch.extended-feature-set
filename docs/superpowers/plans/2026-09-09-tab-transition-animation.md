@@ -196,7 +196,7 @@ On the installed app:
 5. Switch rapidly between Notification Center and regular tabs; the last selected tab must own the final height.
 6. Enable Reduce Motion and confirm the height changes immediately.
 
-- [ ] **Step 4: Request focused code review**
+- [x] **Step 4: Request focused code review**
 
 Ask the reviewer to inspect the working diff for matched-geometry uniqueness, stable tab widths, transaction scope, retained local Clipboard feedback, matching geometry timing, Reduce Motion and rapid-interruption handling. Resolve every critical or important finding.
 
@@ -222,8 +222,9 @@ Expected: divergence is `0 0`; only `.superpowers/` remains untracked.
 
 ### Execution notes
 
-- Source HEAD: `d9c4e05e21025d0da3d751935aca824da1cacf6a` (`fix: synchronize notch resize timing`).
+- Final source HEAD: `7a0fff8401faa4f5dc9bf61f84ed8a9483765ad1`.
 - `./scripts/install-local.sh` completed with exit 0; it installed `boringNotch` with the configured development team. No transient `.build/local-install: Directory not empty` cleanup warning occurred.
-- SHA-256: `41f4386f385309110a5bf56238dd2f2e64a23b24759eb63526a99bf12f18f571` for both the Release artifact and `/Applications/boringNotch.app` executable.
+- SHA-256: `71d43947f2a66ff4755ced19aef301a140b9e955c3cd55feef4a14e7cdca1de8` for both the Release artifact and `/Applications/boringNotch.app` executable.
 - Existing warning status: no build warnings were reported by the canonical installer; `git diff --check` passed. The only pre-existing worktree item is untracked `.superpowers/`.
-- Physical-notch visual behavior could not be observed directly in this environment; Task 4, Step 3 remains pending user confirmation. Installed-app signature verification passed.
+- Final integrated review found no Critical or Important issues. The Shelf module-switch suppression fix was included in the reviewed final source.
+- Physical-notch visual behavior could not be observed directly in this environment; Task 4, Step 3 remains pending user confirmation. Installed-app signature verification passed. Task 4, Step 5 remains pending publication.
