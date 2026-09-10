@@ -16,6 +16,7 @@ struct TabModel: Identifiable {
 }
 
 struct TabSelectionView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @Default(.boringShelf) var shelfEnabled
     @Default(.clipboardHistoryEnabled) var clipboardEnabled
@@ -42,9 +43,7 @@ struct TabSelectionView: View {
             ForEach(tabs) { tab in
                     TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view,
                               horizontalPadding: tabs.count >= 5 ? 8 : 15) {
-                        withAnimation(.smooth) {
-                            coordinator.currentView = tab.view
-                        }
+                        coordinator.currentView = tab.view
                     }
                     .frame(height: 26)
                     .foregroundStyle(tab.view == coordinator.currentView ? .white : .gray)
@@ -63,6 +62,7 @@ struct TabSelectionView: View {
             }
         }
         .clipShape(Capsule())
+        .animation(reduceMotion ? nil : .smooth, value: coordinator.currentView)
     }
 }
 

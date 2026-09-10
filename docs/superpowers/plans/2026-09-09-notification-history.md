@@ -746,3 +746,10 @@ Expected: `0 0` divergence and no pending feature changes. Mark completed plan c
 - Removed all history-specific native panel resizing and dynamic `notchSize` updates. The AppKit host now owns only keyboard focus for Escape handling.
 - Moved History into the same `currentView` switch as Home, Shelf, Clipboard and Pomodoro. Its one-row controls remain fixed while the notification list and full-text detail scroll within the remaining height.
 - The canonical install script passed. Built and installed executable SHA-256 both equal `7e5cba89294f6cd7e25ec4ea4adeb25d41e002ab3a292669f432ebb07c264f31`. Native Home → History → Home switching kept the same panel height; the settled History frame contained no previous-tab content.
+
+## Follow-up — tab animation isolation
+
+- Removed the broad `withAnimation` transaction from tab navigation. It animated the history view's focus teardown and the replacement Home content together, producing a history-only top-to-bottom movement.
+- The smooth animation is now scoped to the tab selector subtree, so the selection capsule and colors still animate while the main module changes immediately. The selector also respects the macOS Reduce Motion preference.
+- Focused review found no changes to navigation, geometry, hover, gestures or keyboard behavior. The canonical install script passed, and the built and installed executable SHA-256 values both equal `106adcb53560b4d651582cd140127eba5f2cfb21002dec51032502cea1c307d0`.
+- The automation session could inspect the installed process but could not synthesize the physical-notch hover needed to replay History → Home, so final motion confirmation remains a physical-pointer check.
